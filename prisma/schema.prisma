@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum ContactType {
+  LEAD
+  CLIENT
+}
+
+enum ContactMethod {
+  PHONE
+  WHATSAPP
+  EMAIL
+  IN_PERSON
+  NONE
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  CONVERTED
+}
+
+enum SaleType {
+  REGULAR
+  CONSIGNMENT
+}
+
+enum SaleStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum ProductCategory {
+  AUTOMOTIVE
+  ARCHITECTURAL
+  PPF
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          UserRole  @default(OPERATOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignedLeads   Contact[]   @relation("AssignedTo")
+  scheduledVisits Visit[]     @relation("VisitAssignedTo")
+  createdVisits   Visit[]     @relation("VisitCreatedBy")
+  sales           Sale[]
+  quotes          Quote[]
+
+  @@map("users")
+}
+
+model Contact {
+  id              String        @id @default(cuid())
+  type            ContactType   @default(LEAD)
+  firstName       String
+  lastName        String
+  company         String?
+  email           String?
+  phone           String?
+  whatsapp        String?
+  address         String?
+  city            String?
+  state           String?
+  notes           String?       @db.Text
+
+  // Lead-specific fields
+  contacted       Boolean       @default(false)
+  contactMethod   ContactMethod @default(NONE)
+  contactDate     DateTime?
+  vehicleFlowWeekly    Int?     // Vehicles polarized per week
+  architecturalFlowMonthly Int? // Architectural projects per month
+  currentSupplier      String?
+  currentSupplierPrices String? @db.Text // JSON with pricing info
+
+  assignedToId    String?
+  assignedTo      User?         @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  visits          Visit[]
+  quotes          Quote[]
+  sales           Sale[]
+  payments        Payment[]
+
+  @@map("contacts")
+}
+
+model Visit {
+  id            String    @id @default(cuid())
+  contactId     String
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedToId  String
+  assignedTo    User      @relation("VisitAssignedTo", fields: [assignedToId], references: [id])
+  createdById   String
+  createdBy     User      @relation("VisitCreatedBy", fields: [createdById], references: [id])
+  scheduledDate DateTime
+  notes         String?   @db.Text
+  completed     Boolean   @default(false)
+  completedDate DateTime?
+  result        String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("visits")
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  name          String
+  description   String?         @db.Text
+  category      ProductCategory
+  brand         String?
+  width         Decimal?        @db.Decimal(10, 2) // in meters
+  length        Decimal?        @db.Decimal(10, 2) // in meters (roll length)
+  shade         String?         // e.g., 5%, 20%, 35%
+  price         Decimal         @db.Decimal(10, 2) // unit price
+  cost          Decimal?        @db.Decimal(10, 2) // cost price
+  stock         Int             @default(0)
+  minStock      Int             @default(0)
+  sku           String?         @unique
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  quoteItems    QuoteItem[]
+  saleItems     SaleItem[]
+
+  @@map("products")
+}
+
+model Quote {
+  id            String        @id @default(cuid())
+  number        Int           @unique @default(autoincrement())
+  contactId     String
+  contact       Contact       @relation(fields: [contactId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  status        QuoteStatus   @default(DRAFT)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
+  tax           Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  validUntil    DateTime?
+  notes         String?       @db.Text
+  convertedToSaleId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items         QuoteItem[]
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String    @id @default(cuid())
+  quoteId     String
+  quote       Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  total       Decimal   @db.Decimal(10, 2)
+
+  @@map("quote_items")
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  number        Int           @unique @default(autoincrement())
+  contactId     String
+  contact       Contact       @relation(fields: [contactId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  type          SaleType      @default(REGULAR)
+  status        SaleStatus    @default(PENDING)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
+  tax           Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items         SaleItem[]
+  remito        Remito?
+  payments      Payment[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id          String    @id @default(cuid())
+  saleId      String
+  sale        Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  total       Decimal   @db.Decimal(10, 2)
+
+  @@map("sale_items")
+}
+
+model Remito {
+  id          String    @id @default(cuid())
+  number      Int       @unique @default(autoincrement())
+  saleId      String    @unique
+  sale        Sale      @relation(fields: [saleId], references: [id])
+  issuedAt    DateTime  @default(now())
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("remitos")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  saleId      String
+  sale        Sale          @relation(fields: [saleId], references: [id])
+  contactId   String
+  contact     Contact       @relation(fields: [contactId], references: [id])
+  amount      Decimal       @db.Decimal(10, 2)
+  method      String?       // cash, transfer, card, etc.
+  reference   String?       // payment reference number
+  notes       String?       @db.Text
+  paidAt      DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Competitor {
+  id            String    @id @default(cuid())
+  name          String
+  website       String?
+  phone         String?
+  email         String?
+  address       String?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products      CompetitorProduct[]
+
+  @@map("competitors")
+}
+
+model CompetitorProduct {
+  id            String    @id @default(cuid())
+  competitorId  String
+  competitor    Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  name          String
+  category      ProductCategory
+  brand         String?
+  shade         String?
+  price         Decimal   @db.Decimal(10, 2)
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("competitor_products")
+}

@@ -1,0 +1,93 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const lead = await prisma.contact.findUnique({
+      where: { id, type: "LEAD" },
+      include: {
+        assignedTo: {
+          select: { id: true, name: true, email: true },
+        },
+        visits: {
+          include: {
+            assignedTo: { select: { id: true, name: true } },
+          },
+          orderBy: { scheduledDate: "desc" },
+        },
+        quotes: {
+          include: {
+            items: { include: { product: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!lead) {
+      return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(lead);
+  } catch (error) {
+    console.error("Error fetching lead:", error);
+    return NextResponse.json(
+      { error: "Error fetching lead" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    const lead = await prisma.contact.update({
+      where: { id },
+      data: body,
+      include: {
+        assignedTo: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    return NextResponse.json(lead);
+  } catch (error) {
+    console.error("Error updating lead:", error);
+    return NextResponse.json(
+      { error: "Error updating lead" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    await prisma.contact.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Lead deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting lead:", error);
+    return NextResponse.json(
+      { error: "Error deleting lead" },
+      { status: 500 }
+    );
+  }
+}

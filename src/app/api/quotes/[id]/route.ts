@@ -1,0 +1,205 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const quote = await prisma.quote.findUnique({
+      where: { id },
+      include: {
+        contact: true,
+        user: { select: { id: true, name: true, email: true } },
+        items: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!quote) {
+      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(quote);
+  } catch (error) {
+    console.error("Error fetching quote:", error);
+    return NextResponse.json(
+      { error: "Error fetching quote" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { items, ...quoteData } = body;
+
+    if (items) {
+      const subtotal = items.reduce(
+        (sum: number, item: { quantity: number; unitPrice: number }) =>
+          sum + item.quantity * item.unitPrice,
+        0
+      );
+      const discount = quoteData.discount ?? 0;
+      const tax = quoteData.tax ?? 0;
+      const total = subtotal - discount + tax;
+
+      // Delete existing items and recreate
+      await prisma.quoteItem.deleteMany({ where: { quoteId: id } });
+
+      const quote = await prisma.quote.update({
+        where: { id },
+        data: {
+          ...quoteData,
+          subtotal,
+          total,
+          items: {
+            create: items.map(
+              (item: { productId: string; quantity: number; unitPrice: number }) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: item.quantity * item.unitPrice,
+              })
+            ),
+          },
+        },
+        include: {
+          contact: true,
+          items: { include: { product: true } },
+        },
+      });
+
+      return NextResponse.json(quote);
+    }
+
+    const quote = await prisma.quote.update({
+      where: { id },
+      data: quoteData,
+      include: {
+        contact: true,
+        items: { include: { product: true } },
+      },
+    });
+
+    return NextResponse.json(quote);
+  } catch (error) {
+    console.error("Error updating quote:", error);
+    return NextResponse.json(
+      { error: "Error updating quote" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    if (body.action !== "convert") {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    }
+
+    const quote = await prisma.quote.findUnique({
+      where: { id },
+      include: {
+        contact: true,
+        items: { include: { product: true } },
+      },
+    });
+
+    if (!quote) {
+      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+    }
+
+    if (quote.status === "CONVERTED") {
+      return NextResponse.json(
+        { error: "Quote already converted" },
+        { status: 400 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // a. Create a Sale from the quote data
+      const sale = await tx.sale.create({
+        data: {
+          contactId: quote.contactId,
+          userId: quote.userId,
+          subtotal: quote.subtotal,
+          discount: quote.discount,
+          tax: quote.tax,
+          total: quote.total,
+          notes: quote.notes,
+          items: {
+            // b. Create SaleItems from QuoteItems
+            create: quote.items.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              total: item.total,
+            })),
+          },
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      // c. Create a Remito for the sale
+      await tx.remito.create({
+        data: {
+          saleId: sale.id,
+        },
+      });
+
+      // d. Update stock (decrease product quantities)
+      for (const item of quote.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { decrement: item.quantity },
+          },
+        });
+      }
+
+      // e. Convert the contact from LEAD to CLIENT if they're a LEAD
+      if (quote.contact.type === "LEAD") {
+        await tx.contact.update({
+          where: { id: quote.contactId },
+          data: { type: "CLIENT" },
+        });
+      }
+
+      // f. Update quote status to CONVERTED and set convertedToSaleId
+      const updatedQuote = await tx.quote.update({
+        where: { id },
+        data: {
+          status: "CONVERTED",
+          convertedToSaleId: sale.id,
+        },
+      });
+
+      return { sale, quote: updatedQuote };
+    });
+
+    return NextResponse.json(result, { status: 201 });
+  } catch (error) {
+    console.error("Error converting quote:", error);
+    return NextResponse.json(
+      { error: "Error converting quote to sale" },
+      { status: 500 }
+    );
+  }
+}
