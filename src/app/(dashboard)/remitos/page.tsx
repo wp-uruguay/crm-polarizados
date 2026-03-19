@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +31,7 @@ interface Remito {
   }>;
 }
 
-export default function RemitosPage() {
+function RemitosPageInner() {
   const searchParams = useSearchParams();
   const saleIdFilter = searchParams.get("saleId");
 
@@ -141,5 +141,13 @@ export default function RemitosPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function RemitosPage() {
+  return (
+    <Suspense>
+      <RemitosPageInner />
+    </Suspense>
   );
 }
