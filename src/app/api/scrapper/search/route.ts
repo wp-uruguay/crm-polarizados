@@ -1,196 +1,161 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const MAPS_KEY = () => process.env.GOOGLE_MAPS_API_KEY ?? "";
 
-function buildOverpassQuery(lat: number, lng: number, radiusM: number): string {
-  return `[out:json][timeout:20];
-(
-  node["shop"~"car_repair|glass|tyres|car_wash"](around:${radiusM},${lat},${lng});
-  way["shop"~"car_repair|glass|tyres|car_wash"](around:${radiusM},${lat},${lng});
-  node["craft"~"glazier|car_repair"](around:${radiusM},${lat},${lng});
-  way["craft"~"glazier|car_repair"](around:${radiusM},${lat},${lng});
-  node["amenity"~"car_wash|car_rental"](around:${radiusM},${lat},${lng});
-  way["amenity"~"car_wash|car_rental"](around:${radiusM},${lat},${lng});
-  node["name"~"polarizado|film|ppf|vidrio|laminado|tintado|autodetailing|detailing",i](around:${radiusM},${lat},${lng});
-  way["name"~"polarizado|film|ppf|vidrio|laminado|tintado|autodetailing|detailing",i](around:${radiusM},${lat},${lng});
-  node["shop"="car"]["name"](around:${radiusM},${lat},${lng});
-  way["shop"="car"]["name"](around:${radiusM},${lat},${lng});
-);
-out center tags;`;
-}
-
-interface OsmTags {
-  name?: string;
-  "addr:street"?: string;
-  "addr:housenumber"?: string;
-  "addr:city"?: string;
-  "addr:suburb"?: string;
-  "contact:phone"?: string;
-  phone?: string;
-  "contact:website"?: string;
+interface PlaceResult {
+  place_id: string;
+  name: string;
+  vicinity?: string;
+  formatted_address?: string;
+  geometry: { location: { lat: number; lng: number } };
+  formatted_phone_number?: string;
   website?: string;
-  shop?: string;
-  craft?: string;
-  amenity?: string;
-  office?: string;
+  types?: string[];
 }
 
-interface OsmElement {
-  type: "node" | "way";
-  id: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: OsmTags;
+// Geocode city+province to lat/lng
+async function geocode(city: string, province: string): Promise<{ lat: number; lng: number } | null> {
+  const query = `${city}, ${province}, Argentina`;
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("address", query);
+  url.searchParams.set("components", "country:AR");
+  url.searchParams.set("language", "es");
+  url.searchParams.set("key", MAPS_KEY());
+
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if (data.status !== "OK" || !data.results?.length) return null;
+  return data.results[0].geometry.location;
 }
 
-function extractAddress(tags: OsmTags): string {
-  const parts = [
-    tags["addr:street"],
-    tags["addr:housenumber"],
-    tags["addr:suburb"],
-    tags["addr:city"],
-  ].filter(Boolean);
-  return parts.join(" ").trim();
+// One Nearby Search call
+async function nearbySearch(
+  lat: number,
+  lng: number,
+  radiusM: number,
+  keyword: string,
+  type?: string
+): Promise<PlaceResult[]> {
+  const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
+  url.searchParams.set("location", `${lat},${lng}`);
+  url.searchParams.set("radius", String(radiusM));
+  url.searchParams.set("language", "es");
+  url.searchParams.set("key", MAPS_KEY());
+  if (keyword) url.searchParams.set("keyword", keyword);
+  if (type) url.searchParams.set("type", type);
+
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  return (data.results ?? []) as PlaceResult[];
 }
 
-function extractPhone(tags: OsmTags): string {
-  return (tags["contact:phone"] || tags["phone"] || "").trim();
-}
-
-function extractWebsite(tags: OsmTags): string {
-  return (tags["contact:website"] || tags["website"] || "").trim();
-}
-
-function inferType(tags: OsmTags): string {
-  const shop = tags.shop ?? "";
-  const craft = tags.craft ?? "";
-  const amenity = tags.amenity ?? "";
-  const name = (tags.name ?? "").toLowerCase();
-
-  if (shop === "car" || name.includes("concesion")) return "Concesionarias";
-  if (shop === "glass" || craft === "glazier" || name.includes("vidrier")) return "Vidriería/Glass";
-  if (amenity === "car_wash" || name.includes("detailing") || name.includes("autodetailing")) return "Talleres/Autodetailing";
-  if (name.includes("arquitectura") || name.includes("construccion")) return "Arquitectura";
+function inferType(types: string[] = [], name: string): string {
+  const n = name.toLowerCase();
+  if (types.includes("car_dealer") || n.includes("concesion")) return "Concesionarias";
+  if (types.includes("car_wash") || n.includes("detailing") || n.includes("autodetailing")) return "Talleres/Autodetailing";
+  if (n.includes("vidrier") || n.includes("glass") || n.includes("vidrio")) return "Vidriería/Glass";
+  if (n.includes("arquitectura") || n.includes("construccion")) return "Arquitectura";
   return "Talleres/Autodetailing";
 }
 
 export async function POST(request: Request) {
-  let body: { zone: string; radiusKm: number; types?: string[] };
+  if (!process.env.GOOGLE_MAPS_API_KEY) {
+    return NextResponse.json(
+      { error: "GOOGLE_MAPS_API_KEY no configurada. Agregala en las variables de entorno." },
+      { status: 500 }
+    );
+  }
+
+  let body: { city: string; province: string; radiusKm: number; types?: string[] };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
-  const { zone, radiusKm = 3 } = body;
+  const { city, province, radiusKm = 3 } = body;
 
-  if (!zone?.trim()) {
-    return NextResponse.json({ error: "El campo 'zone' es requerido" }, { status: 400 });
+  if (!city?.trim() || !province?.trim()) {
+    return NextResponse.json({ error: "Los campos ciudad y provincia son requeridos" }, { status: 400 });
   }
 
   const radiusM = Math.min(Math.max(radiusKm, 1), 10) * 1000;
 
-  // Step 1: Geocode via Nominatim
-  let lat: number, lng: number;
+  // Step 1: Geocode
+  let coords: { lat: number; lng: number } | null;
   try {
-    const geoUrl = `${NOMINATIM_URL}?q=${encodeURIComponent(zone + ", Argentina")}&format=json&limit=1&countrycodes=ar`;
-    const geoRes = await fetch(geoUrl, {
-      headers: { "User-Agent": "CRM-Polarizados/1.0 (crm@polarizados.com)" },
-    });
-    if (!geoRes.ok) throw new Error("Nominatim error");
-    const geoData = await geoRes.json();
-    if (!geoData.length) {
-      return NextResponse.json(
-        { error: `No se encontró la zona "${zone}" en Argentina. Intentá con un nombre de barrio o ciudad más preciso.` },
-        { status: 404 }
-      );
-    }
-    lat = parseFloat(geoData[0].lat);
-    lng = parseFloat(geoData[0].lon);
+    coords = await geocode(city.trim(), province.trim());
   } catch (err) {
-    console.error("Nominatim error:", err);
+    console.error("Geocode error:", err);
+    return NextResponse.json({ error: "Error al geolocalizar la ciudad." }, { status: 502 });
+  }
+
+  if (!coords) {
     return NextResponse.json(
-      { error: "No se pudo geocodificar la dirección. Verificá la zona ingresada." },
-      { status: 502 }
+      { error: `No se encontró "${city}, ${province}" en Argentina. Verificá el nombre.` },
+      { status: 404 }
     );
   }
 
-  // Step 2: Query Overpass
-  let osmElements: OsmElement[] = [];
-  try {
-    const query = buildOverpassQuery(lat, lng, radiusM);
-    const overpassRes = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-    });
-    if (!overpassRes.ok) throw new Error(`Overpass HTTP ${overpassRes.status}`);
-    const overpassData = await overpassRes.json();
-    osmElements = (overpassData.elements as OsmElement[]) ?? [];
-  } catch (err) {
-    console.error("Overpass error:", err);
-    return NextResponse.json(
-      { error: "Error al consultar la base de datos de negocios. Intentá de nuevo en unos segundos." },
-      { status: 502 }
-    );
-  }
+  const { lat, lng } = coords;
 
-  // Step 3: Deduplicate by name and build list
+  // Step 2: Parallel searches for different keywords/types
+  const searches = await Promise.allSettled([
+    nearbySearch(lat, lng, radiusM, "polarizado"),
+    nearbySearch(lat, lng, radiusM, "film automotriz"),
+    nearbySearch(lat, lng, radiusM, "PPF proteccion pintura"),
+    nearbySearch(lat, lng, radiusM, "tintado autos"),
+    nearbySearch(lat, lng, radiusM, "autodetailing"),
+    nearbySearch(lat, lng, radiusM, "vidrieria automotriz"),
+    nearbySearch(lat, lng, radiusM, "", "car_repair"),
+    nearbySearch(lat, lng, radiusM, "", "car_wash"),
+    nearbySearch(lat, lng, radiusM, "", "car_dealer"),
+  ]);
+
+  // Deduplicate by place_id
   const seen = new Set<string>();
-  const businesses = osmElements
-    .filter((el) => el.tags?.name)
-    .filter((el) => {
-      const key = (el.tags!.name ?? "").toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 50)
-    .map((el) => {
-      const tags = el.tags!;
-      const elLat = el.lat ?? el.center?.lat ?? lat;
-      const elLng = el.lon ?? el.center?.lon ?? lng;
-      return {
-        name: tags.name ?? "",
-        address: extractAddress(tags),
-        phone: extractPhone(tags),
-        website: extractWebsite(tags),
-        lat: elLat,
-        lng: elLng,
-        type: inferType(tags),
-      };
-    });
+  const allPlaces: PlaceResult[] = [];
 
-  // Step 4: Check which are already leads
-  const phoneNumbers = businesses.map((b) => b.phone).filter(Boolean);
+  for (const result of searches) {
+    if (result.status === "fulfilled") {
+      for (const place of result.value) {
+        if (!seen.has(place.place_id)) {
+          seen.add(place.place_id);
+          allPlaces.push(place);
+        }
+      }
+    }
+  }
+
+  const businesses = allPlaces.slice(0, 60).map((p) => ({
+    name: p.name,
+    address: p.vicinity || p.formatted_address || "",
+    phone: p.formatted_phone_number || "",
+    website: p.website || "",
+    lat: p.geometry.location.lat,
+    lng: p.geometry.location.lng,
+    type: inferType(p.types, p.name),
+  }));
+
+  // Step 3: Check against existing leads
   const companyNames = businesses.map((b) => b.name);
+  const existingLeads =
+    companyNames.length > 0
+      ? await prisma.contact.findMany({
+          where: { type: "LEAD", company: { in: companyNames } },
+          select: { id: true, company: true },
+        })
+      : [];
 
-  const orConditions: object[] = [];
-  if (phoneNumbers.length > 0) orConditions.push({ phone: { in: phoneNumbers } });
-  if (companyNames.length > 0) orConditions.push({ company: { in: companyNames } });
-
-  const existingLeads = orConditions.length > 0
-    ? await prisma.contact.findMany({
-        where: { type: "LEAD", OR: orConditions },
-        select: { id: true, phone: true, company: true },
-      })
-    : [];
-
-  const leadPhones = new Set(existingLeads.map((l) => l.phone?.trim()).filter(Boolean));
   const leadCompanies = new Set(
     existingLeads.map((l) => l.company?.toLowerCase().trim()).filter(Boolean)
   );
 
   const enriched = businesses.map((b) => ({
     ...b,
-    isInLeads: !!(
-      (b.phone && leadPhones.has(b.phone.trim())) ||
-      leadCompanies.has(b.name.toLowerCase().trim())
-    ),
+    isInLeads: leadCompanies.has(b.name.toLowerCase().trim()),
   }));
 
-  return NextResponse.json({ businesses: enriched });
+  return NextResponse.json({ businesses: enriched, center: { lat, lng } });
 }

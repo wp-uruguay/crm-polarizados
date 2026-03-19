@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,6 +23,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MapPin, Search, CheckCircle2, Plus, Globe, Phone } from "lucide-react";
+
+// ── Argentine provinces ──────────────────────────────────────────────────────
+const AR_PROVINCES = [
+  "Buenos Aires",
+  "Ciudad Autónoma de Buenos Aires",
+  "Catamarca",
+  "Chaco",
+  "Chubut",
+  "Córdoba",
+  "Corrientes",
+  "Entre Ríos",
+  "Formosa",
+  "Jujuy",
+  "La Pampa",
+  "La Rioja",
+  "Mendoza",
+  "Misiones",
+  "Neuquén",
+  "Río Negro",
+  "Salta",
+  "San Juan",
+  "San Luis",
+  "Santa Cruz",
+  "Santa Fe",
+  "Santiago del Estero",
+  "Tierra del Fuego",
+  "Tucumán",
+];
 
 type BusinessType =
   | "Talleres/Autodetailing"
@@ -51,8 +86,119 @@ const SECTOR_MAP: Record<string, string> = {
   "Todos": "AUTOMOTRIZ",
 };
 
+// ── City Autocomplete ────────────────────────────────────────────────────────
+interface Prediction {
+  description: string;
+  place_id: string;
+}
+
+function CityAutocomplete({
+  value,
+  onChange,
+  province,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  province: string;
+}) {
+  const [suggestions, setSuggestions] = useState<Prediction[]>([]);
+  const [open, setOpen] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const fetchSuggestions = useCallback(
+    (input: string) => {
+      if (input.length < 2) {
+        setSuggestions([]);
+        setOpen(false);
+        return;
+      }
+      setFetching(true);
+      const query = province ? `${input}, ${province}` : input;
+      fetch(`/api/scrapper/autocomplete?input=${encodeURIComponent(query)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setSuggestions(data.predictions ?? []);
+          setOpen((data.predictions ?? []).length > 0);
+        })
+        .catch(() => setSuggestions([]))
+        .finally(() => setFetching(false));
+    },
+    [province]
+  );
+
+  function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    onChange(val);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => fetchSuggestions(val), 350);
+  }
+
+  function handleSelect(desc: string) {
+    // Strip ", Argentina" suffix and province if present for cleaner city name
+    const clean = desc
+      .replace(/, Argentina$/, "")
+      .replace(new RegExp(`,\\s*${province}`, "i"), "")
+      .trim();
+    onChange(clean || desc);
+    setSuggestions([]);
+    setOpen(false);
+  }
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Ej: Rosario, Córdoba, Mendoza..."
+          value={value}
+          onChange={handleInput}
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          autoComplete="off"
+          required
+        />
+        {fetching && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-52 overflow-y-auto">
+          {suggestions.map((s) => (
+            <li
+              key={s.place_id}
+              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(s.description);
+              }}
+            >
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {s.description}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────
 export default function ScrapperPage() {
-  const [zone, setZone] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
   const [radius, setRadius] = useState(3);
   const [bizTypes, setBizTypes] = useState<BusinessType[]>(["Todos"]);
   const [loading, setLoading] = useState(false);
@@ -68,14 +214,16 @@ export default function ScrapperPage() {
     }
     setBizTypes((prev) => {
       const without = prev.filter((x) => x !== "Todos");
-      const next = without.includes(t) ? without.filter((x) => x !== t) : [...without, t];
+      const next = without.includes(t)
+        ? without.filter((x) => x !== t)
+        : [...without, t];
       return next.length === 0 ? ["Todos"] : next;
     });
   }
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!zone.trim()) return;
+    if (!city.trim() || !province) return;
     setLoading(true);
     setError(null);
     setResults(null);
@@ -84,7 +232,12 @@ export default function ScrapperPage() {
       const res = await fetch("/api/scrapper/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ zone: zone.trim(), radiusKm: radius, types: bizTypes }),
+        body: JSON.stringify({
+          city: city.trim(),
+          province,
+          radiusKm: radius,
+          types: bizTypes,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al buscar negocios");
@@ -109,7 +262,8 @@ export default function ScrapperPage() {
           company: biz.name,
           phone: biz.phone || null,
           address: biz.address || null,
-          city: zone.split(",")[0]?.trim() || null,
+          city: city.trim() || null,
+          state: province || null,
           sector,
           notes: `Importado desde DR Scrapp.${biz.address ? ` Dirección: ${biz.address}.` : ""}${biz.website ? ` Web: ${biz.website}` : ""}`,
         }),
@@ -126,8 +280,15 @@ export default function ScrapperPage() {
     }
   }
 
-  const total = results?.length ?? 0;
-  const alreadyIn = results?.filter((b) => b.isInLeads).length ?? 0;
+  // Filter results by selected business types
+  const filteredResults = results
+    ? bizTypes.includes("Todos")
+      ? results
+      : results.filter((b) => bizTypes.includes((b.type ?? "Todos") as BusinessType))
+    : null;
+
+  const total = filteredResults?.length ?? 0;
+  const alreadyIn = filteredResults?.filter((b) => b.isInLeads).length ?? 0;
   const newPotential = total - alreadyIn;
 
   return (
@@ -138,7 +299,7 @@ export default function ScrapperPage() {
           DR Scrapp
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Encontrá negocios potenciales en Argentina por zona geográfica y agregalos como leads
+          Encontrá negocios potenciales en Argentina por zona y agregalos como leads
         </p>
       </div>
 
@@ -149,42 +310,62 @@ export default function ScrapperPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
+            {/* Province + City */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Zona o dirección en Argentina *</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Ej: Villa Crespo, Buenos Aires"
-                    value={zone}
-                    onChange={(e) => setZone(e.target.value)}
-                    required
-                  />
-                </div>
+                <Label>Provincia *</Label>
+                <Select
+                  value={province}
+                  onValueChange={(v) => {
+                    setProvince(v);
+                    setCity("");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar provincia..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {AR_PROVINCES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label>
-                  Radio:{" "}
-                  <span className="font-semibold text-orange-500">{radius} km</span>
-                </Label>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={radius}
-                  onChange={(e) => setRadius(Number(e.target.value))}
-                  className="w-full accent-orange-500 h-2 cursor-pointer"
+                <Label>Ciudad / Localidad *</Label>
+                <CityAutocomplete
+                  value={city}
+                  onChange={setCity}
+                  province={province}
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>1 km</span>
-                  <span>10 km</span>
-                </div>
               </div>
             </div>
 
+            {/* Radius */}
+            <div className="space-y-1.5">
+              <Label>
+                Radio:{" "}
+                <span className="font-semibold text-orange-500">{radius} km</span>
+              </Label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={radius}
+                onChange={(e) => setRadius(Number(e.target.value))}
+                className="w-full accent-orange-500 h-2 cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1 km</span>
+                <span>10 km</span>
+              </div>
+            </div>
+
+            {/* Business type pills */}
             <div className="space-y-1.5">
               <Label>Tipo de negocio</Label>
               <div className="flex flex-wrap gap-2">
@@ -207,7 +388,7 @@ export default function ScrapperPage() {
 
             <Button
               type="submit"
-              disabled={!zone.trim() || loading}
+              disabled={!city.trim() || !province || loading}
               className="w-full sm:w-auto"
             >
               {loading ? (
@@ -250,7 +431,7 @@ export default function ScrapperPage() {
       )}
 
       {/* Results */}
-      {results && !loading && (
+      {filteredResults && !loading && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
@@ -267,22 +448,22 @@ export default function ScrapperPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {results.length === 0 ? (
+            {filteredResults.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-sm">
                 <MapPin className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p>No se encontraron negocios en esa zona.</p>
-                <p className="mt-1">Probá con un radio mayor o una zona diferente.</p>
+                <p className="mt-1">Probá con un radio mayor o una ciudad diferente.</p>
               </div>
             ) : (
               <>
                 {/* Mobile */}
                 <div className="md:hidden divide-y">
-                  {results.map((biz, idx) => {
+                  {filteredResults.map((biz, idx) => {
                     const alreadyLead = biz.isInLeads || addedIdxs.has(idx);
                     return (
                       <div key={idx} className="p-4 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm">{biz.name || "Sin nombre"}</p>
+                          <p className="font-medium text-sm">{biz.name}</p>
                           <Badge
                             className={
                               alreadyLead
@@ -332,17 +513,18 @@ export default function ScrapperPage() {
                         <TableHead>Dirección</TableHead>
                         <TableHead>Teléfono</TableHead>
                         <TableHead>Web</TableHead>
+                        <TableHead>Tipo</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="text-right">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.map((biz, idx) => {
+                      {filteredResults.map((biz, idx) => {
                         const alreadyLead = biz.isInLeads || addedIdxs.has(idx);
                         return (
                           <TableRow key={idx}>
-                            <TableCell className="font-medium max-w-[180px]">
-                              <span className="block truncate">{biz.name || "Sin nombre"}</span>
+                            <TableCell className="font-medium max-w-[160px]">
+                              <span className="block truncate">{biz.name}</span>
                             </TableCell>
                             <TableCell className="max-w-[200px]">
                               <span className="block truncate text-sm text-muted-foreground">
@@ -351,15 +533,10 @@ export default function ScrapperPage() {
                             </TableCell>
                             <TableCell className="text-sm whitespace-nowrap">
                               {biz.phone ? (
-                                <a
-                                  href={`tel:${biz.phone}`}
-                                  className="hover:text-primary transition-colors"
-                                >
+                                <a href={`tel:${biz.phone}`} className="hover:text-primary">
                                   {biz.phone}
                                 </a>
-                              ) : (
-                                "—"
-                              )}
+                              ) : "—"}
                             </TableCell>
                             <TableCell>
                               {biz.website ? (
@@ -372,9 +549,12 @@ export default function ScrapperPage() {
                                   <Globe className="h-3.5 w-3.5" />
                                   Ver
                                 </a>
-                              ) : (
-                                "—"
-                              )}
+                              ) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-muted-foreground">
+                                {biz.type ?? "—"}
+                              </span>
                             </TableCell>
                             <TableCell>
                               {alreadyLead ? (
