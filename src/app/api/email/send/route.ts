@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: Request) {
   try {
     const { to, subject, body, fromName } = await request.json();
@@ -14,6 +12,8 @@ export async function POST(request: Request) {
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({ error: "RESEND_API_KEY no configurada" }, { status: 500 });
     }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     const displayName = fromName || process.env.RESEND_FROM_NAME || "CRM Polarizados";
