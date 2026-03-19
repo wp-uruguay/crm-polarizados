@@ -476,10 +476,19 @@ export default function ScrapperPage() {
                           </Badge>
                         </div>
                         {biz.address && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {biz.address}
-                          </p>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{biz.address}</span>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(biz.name + " " + biz.address)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Ver en Google Maps"
+                              className="ml-0.5 text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <Globe className="h-3 w-3" />
+                            </a>
+                          </div>
                         )}
                         {biz.phone && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -526,10 +535,21 @@ export default function ScrapperPage() {
                             <TableCell className="font-medium max-w-[160px]">
                               <span className="block truncate">{biz.name}</span>
                             </TableCell>
-                            <TableCell className="max-w-[200px]">
-                              <span className="block truncate text-sm text-muted-foreground">
-                                {biz.address || "—"}
-                              </span>
+                            <TableCell className="max-w-[220px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="block truncate text-sm text-muted-foreground">
+                                  {biz.address || "—"}
+                                </span>
+                                <a
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(biz.name + " " + biz.address)}&query_place_id=${encodeURIComponent(biz.lat + "," + biz.lng)}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Ver en Google Maps"
+                                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                  <MapPin className="h-3.5 w-3.5" />
+                                </a>
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm whitespace-nowrap">
                               {biz.phone ? (
