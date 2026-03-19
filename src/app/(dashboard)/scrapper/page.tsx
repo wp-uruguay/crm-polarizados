@@ -253,7 +253,7 @@ export default function ScrapperPage() {
     setAddingIdx(idx);
     try {
       const sector = SECTOR_MAP[biz.type ?? "Todos"] ?? "AUTOMOTRIZ";
-      const res = await fetch("/api/leads", {
+      const res = await fetch("/api/scrapper/add-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
