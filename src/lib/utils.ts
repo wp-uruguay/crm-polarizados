@@ -10,6 +10,8 @@ export function formatCurrency(amount: number | string): string {
   return new Intl.NumberFormat("es-UY", {
     style: "currency",
     currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(num);
 }
 

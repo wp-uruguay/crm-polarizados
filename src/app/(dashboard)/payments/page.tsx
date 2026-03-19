@@ -27,8 +27,9 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectOption } from "@/components/ui/select";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { formatDate } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 
 interface Payment {
   id: string;
@@ -58,6 +59,7 @@ const paymentMethodLabel: Record<string, string> = {
 };
 
 export default function PaymentsPage() {
+  const { format: formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState<"payments" | "debts">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
@@ -140,7 +142,7 @@ export default function PaymentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Pagos</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
+          <DialogTrigger asChild>
             <Button>Registrar Pago</Button>
           </DialogTrigger>
           <DialogContent>
@@ -151,19 +153,17 @@ export default function PaymentsPage() {
               <div className="space-y-2">
                 <Label>Venta *</Label>
                 <Select
-                  value={form.saleId}
-                  onChange={(e) =>
-                    setForm({ ...form, saleId: e.target.value })
-                  }
-                  required
+                  value={form.saleId || undefined}
+                  onValueChange={(v) => setForm({ ...form, saleId: v })}
                 >
-                  <SelectOption value="">Seleccionar venta...</SelectOption>
-                  {debts.map((debt) => (
-                    <SelectOption key={debt.saleId} value={debt.saleId}>
-                      {debt.saleNumber} - {debt.clientName} (Debe:{" "}
-                      {formatCurrency(debt.remaining)})
-                    </SelectOption>
-                  ))}
+                  <SelectTrigger><SelectValue placeholder="Seleccionar venta..." /></SelectTrigger>
+                  <SelectContent>
+                    {debts.map((debt) => (
+                      <SelectItem key={debt.saleId} value={debt.saleId}>
+                        {debt.saleNumber} - {debt.clientName} (Debe: {formatCurrency(debt.remaining)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -183,17 +183,16 @@ export default function PaymentsPage() {
                   <Label>Metodo de Pago *</Label>
                   <Select
                     value={form.method}
-                    onChange={(e) =>
-                      setForm({ ...form, method: e.target.value })
-                    }
+                    onValueChange={(v) => setForm({ ...form, method: v })}
                   >
-                    <SelectOption value="CASH">Efectivo</SelectOption>
-                    <SelectOption value="TRANSFER">Transferencia</SelectOption>
-                    <SelectOption value="CHECK">Cheque</SelectOption>
-                    <SelectOption value="CREDIT_CARD">
-                      Tarjeta de Credito
-                    </SelectOption>
-                    <SelectOption value="OTHER">Otro</SelectOption>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CASH">Efectivo</SelectItem>
+                      <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                      <SelectItem value="CHECK">Cheque</SelectItem>
+                      <SelectItem value="CREDIT_CARD">Tarjeta de Credito</SelectItem>
+                      <SelectItem value="OTHER">Otro</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>

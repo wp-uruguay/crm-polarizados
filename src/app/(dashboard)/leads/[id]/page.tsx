@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectOption } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -32,7 +32,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 
 interface Visit {
   id: string;
@@ -54,24 +55,29 @@ interface LeadDetail {
   firstName: string;
   lastName: string;
   company: string | null;
+  sector: string | null;
   email: string | null;
   phone: string | null;
   whatsapp: string | null;
+  address: string | null;
   city: string | null;
   contacted: boolean;
   contactMethod: string | null;
   contactDate: string | null;
+  assignedToId: string | null;
   notes: string | null;
   vehicleFlowWeekly: number | null;
   architecturalFlowMonthly: number | null;
   currentSupplier: string | null;
   currentSupplierPrices: string | null;
+  avatarUrl: string | null;
   assignedTo: { id: string; name: string } | null;
   visits: Visit[];
   quotes: Quote[];
 }
 
 export default function LeadDetailPage() {
+  const { format: formatCurrency } = useCurrency();
   const params = useParams();
   const router = useRouter();
   const leadId = params.id as string;
@@ -87,18 +93,22 @@ export default function LeadDetailPage() {
     firstName: "",
     lastName: "",
     company: "",
+    sector: "",
     email: "",
     phone: "",
     whatsapp: "",
+    address: "",
     city: "",
     notes: "",
     contacted: false,
     contactMethod: "",
     contactDate: "",
+    assignedToId: "",
     vehicleFlowWeekly: "",
     architecturalFlowMonthly: "",
     currentSupplier: "",
     currentSupplierPrices: "",
+    avatarUrl: "",
   });
 
   const [visitForm, setVisitForm] = useState({
@@ -112,9 +122,11 @@ export default function LeadDetailPage() {
       firstName: data.firstName || "",
       lastName: data.lastName || "",
       company: data.company || "",
+      sector: data.sector || "",
       email: data.email || "",
       phone: data.phone || "",
       whatsapp: data.whatsapp || "",
+      address: data.address || "",
       city: data.city || "",
       notes: data.notes || "",
       contacted: data.contacted || false,
@@ -122,11 +134,12 @@ export default function LeadDetailPage() {
       contactDate: data.contactDate
         ? new Date(data.contactDate).toISOString().split("T")[0]
         : "",
+      assignedToId: data.assignedTo?.id || "",
       vehicleFlowWeekly: data.vehicleFlowWeekly?.toString() || "",
-      architecturalFlowMonthly:
-        data.architecturalFlowMonthly?.toString() || "",
+      architecturalFlowMonthly: data.architecturalFlowMonthly?.toString() || "",
       currentSupplier: data.currentSupplier || "",
       currentSupplierPrices: data.currentSupplierPrices || "",
+      avatarUrl: data.avatarUrl || "",
     });
   }
 
@@ -169,14 +182,17 @@ export default function LeadDetailPage() {
         firstName: form.firstName,
         lastName: form.lastName,
         company: form.company || null,
+        sector: form.sector || null,
         email: form.email || null,
         phone: form.phone || null,
         whatsapp: form.whatsapp || null,
+        address: form.address || null,
         city: form.city || null,
         notes: form.notes || null,
         contacted: form.contacted,
         contactMethod: form.contactMethod || null,
         contactDate: form.contactDate || null,
+        assignedToId: form.assignedToId || null,
         vehicleFlowWeekly: form.vehicleFlowWeekly
           ? parseInt(form.vehicleFlowWeekly)
           : null,
@@ -185,6 +201,7 @@ export default function LeadDetailPage() {
           : null,
         currentSupplier: form.currentSupplier || null,
         currentSupplierPrices: form.currentSupplierPrices || null,
+        avatarUrl: form.avatarUrl || null,
       };
       const res = await fetch(`/api/leads/${leadId}`, {
         method: "PUT",
@@ -237,7 +254,6 @@ export default function LeadDetailPage() {
   if (!lead) return null;
 
   const contactMethodOptions = [
-    { value: "", label: "Seleccionar..." },
     { value: "PHONE", label: "Telefono" },
     { value: "WHATSAPP", label: "WhatsApp" },
     { value: "EMAIL", label: "Email" },
@@ -252,18 +268,46 @@ export default function LeadDetailPage() {
     CONVERTED: "bg-purple-100 text-purple-800",
   };
 
+  const initials = ((lead.firstName?.[0] ?? "") + (lead.company?.[0] ?? lead.lastName?.[0] ?? "")).toUpperCase() || "?";
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setForm((f) => ({ ...f, avatarUrl: ev.target?.result as string }));
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {lead.firstName} {lead.lastName}
-          </h1>
-          {lead.company && (
-            <p className="text-muted-foreground">{lead.company}</p>
-          )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
+          <label className="relative cursor-pointer group shrink-0" title="Cambiar foto">
+            <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
+            {form.avatarUrl ? (
+              <img src={form.avatarUrl} alt={lead.company || lead.firstName} className="w-16 h-16 rounded-full object-cover border-2 border-border" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-xl font-bold text-muted-foreground border-2 border-border">
+                {initials}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-white text-[10px] font-medium">Cambiar</span>
+            </div>
+          </label>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
+              {lead.firstName} {lead.lastName}
+            </h1>
+            {lead.company && (
+              <p className="text-muted-foreground">{lead.company}</p>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             onClick={() => router.push(`/quotes?contactId=${lead.id}`)}
           >
@@ -288,7 +332,7 @@ export default function LeadDetailPage() {
             <CardTitle>Informacion de Contacto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Nombre</Label>
                 <Input
@@ -308,13 +352,32 @@ export default function LeadDetailPage() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Empresa</Label>
+                <Input
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Rubro</Label>
+                <Select value={form.sector || undefined} onValueChange={(v) => setForm({ ...form, sector: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AUTOMOTRIZ">Automotriz</SelectItem>
+                    <SelectItem value="ARQUITECTURA">Arquitectura</SelectItem>
+                    <SelectItem value="SOFTWARE">Software</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-1">
-              <Label>Empresa</Label>
+              <Label>Dirección</Label>
               <Input
-                value={form.company}
-                onChange={(e) =>
-                  setForm({ ...form, company: e.target.value })
-                }
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Av. Ejemplo 1234, Ciudad"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -323,40 +386,24 @@ export default function LeadDetailPage() {
                 <Input
                   type="email"
                   value={form.email}
-                  onChange={(e) =>
-                    setForm({ ...form, email: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Telefono</Label>
+                <Label>Teléfono de oficina</Label>
                 <Input
                   value={form.phone}
-                  onChange={(e) =>
-                    setForm({ ...form, phone: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>WhatsApp</Label>
-                <Input
-                  value={form.whatsapp}
-                  onChange={(e) =>
-                    setForm({ ...form, whatsapp: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Ciudad</Label>
-                <Input
-                  value={form.city}
-                  onChange={(e) =>
-                    setForm({ ...form, city: e.target.value })
-                  }
-                />
-              </div>
+            <div className="space-y-1">
+              <Label>WhatsApp de la empresa</Label>
+              <Input
+                value={form.whatsapp}
+                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                placeholder="+54 9 11 XXXX-XXXX"
+              />
             </div>
             <div className="space-y-1">
               <Label>Notas</Label>
@@ -376,6 +423,17 @@ export default function LeadDetailPage() {
             <CardTitle>Seguimiento de Contacto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label>Comunicación asignada a</Label>
+              <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm({ ...form, assignedToId: v })}>
+                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -389,18 +447,17 @@ export default function LeadDetailPage() {
               <Label htmlFor="contacted">Contactado</Label>
             </div>
             <div className="space-y-1">
-              <Label>Metodo de Contacto</Label>
+              <Label>Vía de contacto</Label>
               <Select
-                value={form.contactMethod}
-                onChange={(e) =>
-                  setForm({ ...form, contactMethod: e.target.value })
-                }
+                value={form.contactMethod || undefined}
+                onValueChange={(v) => setForm({ ...form, contactMethod: v })}
               >
-                {contactMethodOptions.map((opt) => (
-                  <SelectOption key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectOption>
-                ))}
+                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectContent>
+                  {contactMethodOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
@@ -487,7 +544,7 @@ export default function LeadDetailPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Visitas</CardTitle>
             <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
-              <DialogTrigger>
+              <DialogTrigger asChild>
                 <Button size="sm">Agendar Visita</Button>
               </DialogTrigger>
               <DialogContent>
@@ -498,20 +555,15 @@ export default function LeadDetailPage() {
                   <div className="space-y-2">
                     <Label>Asignar a</Label>
                     <Select
-                      value={visitForm.assignedToId}
-                      onChange={(e) =>
-                        setVisitForm({
-                          ...visitForm,
-                          assignedToId: e.target.value,
-                        })
-                      }
+                      value={visitForm.assignedToId || undefined}
+                      onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}
                     >
-                      <SelectOption value="">Seleccionar...</SelectOption>
-                      {users.map((user) => (
-                        <SelectOption key={user.id} value={user.id}>
-                          {user.name}
-                        </SelectOption>
-                      ))}
+                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">

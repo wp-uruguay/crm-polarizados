@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 interface CompetitorProduct {
@@ -40,6 +40,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default function CompetitorsPage() {
+  const { format: formatCurrency } = useCurrency();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -190,10 +191,13 @@ export default function CompetitorsPage() {
                       <div><Label>Producto</Label><Input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} /></div>
                       <div>
                         <Label>Categoría</Label>
-                        <Select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}>
-                          <option value="AUTOMOTIVE">Automotriz</option>
-                          <option value="ARCHITECTURAL">Arquitectónico</option>
-                          <option value="PPF">PPF</option>
+                        <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AUTOMOTIVE">Automotriz</SelectItem>
+                            <SelectItem value="ARCHITECTURAL">Arquitectónico</SelectItem>
+                            <SelectItem value="PPF">PPF</SelectItem>
+                          </SelectContent>
                         </Select>
                       </div>
                       <div><Label>Marca</Label><Input value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} /></div>

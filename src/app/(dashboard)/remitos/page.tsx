@@ -109,7 +109,7 @@ export default function RemitosPage() {
                     <TableCell>{remito.clientName}</TableCell>
                     <TableCell>{formatDate(remito.date)}</TableCell>
                     <TableCell>
-                      {remito.items
+                      {(remito.items ?? [])
                         .map((item) => `${item.productName} x${item.quantity}`)
                         .join(", ")}
                     </TableCell>

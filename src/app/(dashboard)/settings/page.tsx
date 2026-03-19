@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, User } from "lucide-react";
@@ -84,24 +84,58 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           {showForm && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
-              <h3 className="font-medium">Crear Usuario</h3>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Nombre</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-                <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div><Label>Contraseña</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-                <div>
+            <div className="mb-6 rounded-lg border bg-muted/30 p-5 space-y-4">
+              <h3 className="font-semibold text-sm">Crear nuevo usuario</h3>
+              {error && (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Nombre</Label>
+                  <Input
+                    placeholder="Juan Pérez"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="juan@empresa.com"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
                   <Label>Rol</Label>
-                  <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                    <option value="OPERATOR">Operador</option>
-                    <option value="ADMIN">Administrador</option>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OPERATOR">Operador</SelectItem>
+                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleCreate} disabled={saving}>{saving ? "Guardando..." : "Crear Usuario"}</Button>
-                <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+                <Button variant="outline" onClick={() => { setShowForm(false); setError(""); }}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleCreate} disabled={saving}>
+                  {saving ? "Guardando..." : "Crear usuario"}
+                </Button>
               </div>
             </div>
           )}

@@ -43,17 +43,25 @@ export async function GET(request: Request) {
 
     const payments = await prisma.payment.findMany({
       include: {
-        sale: {
-          select: { id: true, number: true, total: true },
-        },
-        contact: {
-          select: { id: true, firstName: true, lastName: true, company: true },
-        },
+        sale: { select: { number: true } },
+        contact: { select: { firstName: true, lastName: true, company: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(payments);
+    const formatted = payments.map((p) => ({
+      id: p.id,
+      date: p.createdAt.toISOString(),
+      clientName: p.contact
+        ? p.contact.company ||
+          `${p.contact.firstName ?? ""} ${p.contact.lastName ?? ""}`.trim()
+        : "—",
+      saleNumber: p.sale?.number ?? "—",
+      amount: Number(p.amount),
+      method: p.method,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error("Error fetching payments:", error);
     return NextResponse.json(

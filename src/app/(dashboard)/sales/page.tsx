@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Sale {
@@ -26,6 +27,7 @@ interface Product { id: string; name: string; price: string; stock: number; }
 interface Contact { id: string; firstName: string; lastName: string; type: string; }
 
 export default function SalesPage() {
+  const { format: formatCurrency } = useCurrency();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -91,16 +93,21 @@ export default function SalesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Contacto</Label>
-                <Select value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
-                  <option value="">Seleccionar</option>
-                  {contacts.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                <Select value={form.contactId || undefined} onValueChange={(v) => setForm({ ...form, contactId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Tipo</Label>
-                <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                  <option value="REGULAR">Regular</option>
-                  <option value="CONSIGNMENT">Consignación</option>
+                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="REGULAR">Regular</SelectItem>
+                    <SelectItem value="CONSIGNMENT">Consignación</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -108,9 +115,11 @@ export default function SalesPage() {
               <Label>Productos</Label>
               {form.items.map((item, idx) => (
                 <div key={idx} className="flex gap-2 mt-2">
-                  <Select className="flex-1" value={item.productId} onChange={(e) => updateItem(idx, "productId", e.target.value)}>
-                    <option value="">Seleccionar</option>
-                    {products.map((p) => <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock})</option>)}
+                  <Select value={item.productId || undefined} onValueChange={(v) => updateItem(idx, "productId", v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} (Stock: {p.stock})</SelectItem>)}
+                    </SelectContent>
                   </Select>
                   <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} min={1} />
                   <Input type="number" className="w-28" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)} />

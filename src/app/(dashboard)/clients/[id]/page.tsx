@@ -18,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 
 interface ClientDetail {
   id: string;
@@ -51,6 +52,7 @@ interface ClientDetail {
 }
 
 export default function ClientDetailPage() {
+  const { format: formatCurrency } = useCurrency();
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;

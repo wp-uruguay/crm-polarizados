@@ -22,13 +22,28 @@ export async function GET(request: Request) {
       where,
       include: {
         assignedTo: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true },
+        },
+        sales: { select: { total: true } },
+        payments: { select: { amount: true } },
+        tags: {
+          include: { tag: true },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(clients);
+    const result = clients.map(({ sales, payments, ...c }) => {
+      const totalPurchases = sales.reduce((sum, s) => sum + Number(s.total), 0);
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      return {
+        ...c,
+        totalPurchases,
+        balance: totalPurchases - totalPaid,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching clients:", error);
     return NextResponse.json(
@@ -49,7 +64,7 @@ export async function POST(request: Request) {
       },
       include: {
         assignedTo: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true },
         },
       },
     });

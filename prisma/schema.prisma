@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -63,16 +64,52 @@ model User {
   email         String    @unique
   password      String
   role          UserRole  @default(OPERATOR)
+  avatarUrl     String?   @db.LongText
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  assignedLeads   Contact[]   @relation("AssignedTo")
-  scheduledVisits Visit[]     @relation("VisitAssignedTo")
-  createdVisits   Visit[]     @relation("VisitCreatedBy")
+  assignedLeads   Contact[]      @relation("AssignedTo")
+  scheduledVisits Visit[]        @relation("VisitAssignedTo")
+  createdVisits   Visit[]        @relation("VisitCreatedBy")
   sales           Sale[]
   quotes          Quote[]
+  assignedUnits   ProductUnit[]  @relation("UnitAssignedTo")
 
   @@map("users")
+}
+
+model CrmTask {
+  id        String    @id @default(cuid())
+  title     String
+  done      Boolean   @default(false)
+  dueDate   DateTime?
+  priority  String?   // LOW | MEDIUM | HIGH
+  userId    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("crm_tasks")
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  color     String       @default("#6366f1")
+  createdAt DateTime     @default(now())
+
+  contacts  ContactTag[]
+
+  @@map("tags")
+}
+
+model ContactTag {
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@map("contact_tags")
 }
 
 model Contact {
@@ -81,6 +118,7 @@ model Contact {
   firstName       String
   lastName        String
   company         String?
+  sector          String?       // AUTOMOTRIZ | ARQUITECTURA | SOFTWARE
   email           String?
   phone           String?
   whatsapp        String?
@@ -93,10 +131,11 @@ model Contact {
   contacted       Boolean       @default(false)
   contactMethod   ContactMethod @default(NONE)
   contactDate     DateTime?
-  vehicleFlowWeekly    Int?     // Vehicles polarized per week
-  architecturalFlowMonthly Int? // Architectural projects per month
+  vehicleFlowWeekly    Int?
+  architecturalFlowMonthly Int?
   currentSupplier      String?
-  currentSupplierPrices String? @db.Text // JSON with pricing info
+  currentSupplierPrices String? @db.Text
+  avatarUrl       String?       @db.LongText
 
   assignedToId    String?
   assignedTo      User?         @relation("AssignedTo", fields: [assignedToId], references: [id])
@@ -104,6 +143,7 @@ model Contact {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  tags            ContactTag[]
   visits          Visit[]
   quotes          Quote[]
   sales           Sale[]
@@ -136,23 +176,67 @@ model Product {
   name          String
   description   String?         @db.Text
   category      ProductCategory
+  subcategory   String?         // PREMIUM | NANOCERAMIC | NANOCARBON | SAFETY | PPF (for AUTOMOTIVE)
   brand         String?
-  width         Decimal?        @db.Decimal(10, 2) // in meters
-  length        Decimal?        @db.Decimal(10, 2) // in meters (roll length)
-  shade         String?         // e.g., 5%, 20%, 35%
-  price         Decimal         @db.Decimal(10, 2) // unit price
-  cost          Decimal?        @db.Decimal(10, 2) // cost price
+  width         Decimal?        @db.Decimal(10, 2)
+  length        Decimal?        @db.Decimal(10, 2)
+  shade         String?         // e.g., "05", "20", "35" or manual for PPF
+  price         Decimal         @db.Decimal(10, 2)
+  cost          Decimal?        @db.Decimal(10, 2)
   stock         Int             @default(0)
   minStock      Int             @default(0)
   sku           String?         @unique
+  imageUrl      String?         @db.LongText // base64 or URL
   active        Boolean         @default(true)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   quoteItems    QuoteItem[]
   saleItems     SaleItem[]
+  discounts     ProductDiscount[]
+  units         ProductUnit[]
 
   @@map("products")
+}
+
+model ProductDiscount {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String   // FIXED | PERCENTAGE
+  value     Decimal  @db.Decimal(10, 2)
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@map("product_discounts")
+}
+
+model ProductUnit {
+  id           String    @id @default(cuid())
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  code         String    @unique // [CAT_ABBREV]-[SHADE]-[SEQ4]
+  assignedToId String?
+  assignedTo   User?     @relation("UnitAssignedTo", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("product_units")
+}
+
+model QuoteItem {
+  id          String    @id @default(cuid())
+  quoteId     String
+  quote       Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  total       Decimal   @db.Decimal(10, 2)
+
+  @@map("quote_items")
 }
 
 model Quote {
@@ -176,19 +260,6 @@ model Quote {
   items         QuoteItem[]
 
   @@map("quotes")
-}
-
-model QuoteItem {
-  id          String    @id @default(cuid())
-  quoteId     String
-  quote       Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product   @relation(fields: [productId], references: [id])
-  quantity    Int
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  total       Decimal   @db.Decimal(10, 2)
-
-  @@map("quote_items")
 }
 
 model Sale {
@@ -248,8 +319,8 @@ model Payment {
   contactId   String
   contact     Contact       @relation(fields: [contactId], references: [id])
   amount      Decimal       @db.Decimal(10, 2)
-  method      String?       // cash, transfer, card, etc.
-  reference   String?       // payment reference number
+  method      String?
+  reference   String?
   notes       String?       @db.Text
   paidAt      DateTime      @default(now())
   createdAt   DateTime      @default(now())

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useCurrency } from "@/contexts/currency-context";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 
@@ -34,6 +35,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function QuoteDetailPage() {
+  const { format: formatCurrency } = useCurrency();
   const params = useParams();
   const router = useRouter();
   const [quote, setQuote] = useState<QuoteDetail | null>(null);

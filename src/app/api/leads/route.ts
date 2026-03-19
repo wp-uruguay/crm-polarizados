@@ -24,6 +24,9 @@ export async function GET(request: Request) {
         assignedTo: {
           select: { id: true, name: true, email: true },
         },
+        tags: {
+          include: { tag: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
