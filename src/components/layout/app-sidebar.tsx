@@ -13,6 +13,8 @@ import {
   CreditCard,
   Target,
   Brain,
+  Sparkles,
+  MapPin,
   Settings,
 } from "lucide-react";
 import {
@@ -38,6 +40,8 @@ const navItems = [
   { label: "Pagos", href: "/payments", icon: CreditCard },
   { label: "Competencia", href: "/competitors", icon: Target },
   { label: "AI Insights", href: "/ai-insights", icon: Brain },
+  { label: "RRSS Creator", href: "/social-creator", icon: Sparkles },
+  { label: "DR Scrapp", href: "/scrapper", icon: MapPin },
 ];
 
 export function AppSidebar() {

@@ -1,0 +1,418 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MapPin, Search, CheckCircle2, Plus, Globe, Phone } from "lucide-react";
+
+type BusinessType =
+  | "Talleres/Autodetailing"
+  | "Vidriería/Glass"
+  | "Arquitectura"
+  | "Concesionarias"
+  | "Todos";
+
+interface ScrapedBusiness {
+  name: string;
+  address: string;
+  phone: string;
+  website: string;
+  lat: number;
+  lng: number;
+  isInLeads: boolean;
+  type?: string;
+}
+
+const BUSINESS_TYPES: BusinessType[] = [
+  "Todos",
+  "Talleres/Autodetailing",
+  "Vidriería/Glass",
+  "Arquitectura",
+  "Concesionarias",
+];
+
+const SECTOR_MAP: Record<string, string> = {
+  "Talleres/Autodetailing": "AUTOMOTRIZ",
+  "Vidriería/Glass": "AUTOMOTRIZ",
+  "Arquitectura": "ARQUITECTURA",
+  "Concesionarias": "AUTOMOTRIZ",
+  "Todos": "AUTOMOTRIZ",
+};
+
+export default function ScrapperPage() {
+  const [zone, setZone] = useState("");
+  const [radius, setRadius] = useState(3);
+  const [bizTypes, setBizTypes] = useState<BusinessType[]>(["Todos"]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<ScrapedBusiness[] | null>(null);
+  const [addingIdx, setAddingIdx] = useState<number | null>(null);
+  const [addedIdxs, setAddedIdxs] = useState<Set<number>>(new Set());
+
+  function toggleType(t: BusinessType) {
+    if (t === "Todos") {
+      setBizTypes(["Todos"]);
+      return;
+    }
+    setBizTypes((prev) => {
+      const without = prev.filter((x) => x !== "Todos");
+      const next = without.includes(t) ? without.filter((x) => x !== t) : [...without, t];
+      return next.length === 0 ? ["Todos"] : next;
+    });
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!zone.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResults(null);
+    setAddedIdxs(new Set());
+    try {
+      const res = await fetch("/api/scrapper/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ zone: zone.trim(), radiusKm: radius, types: bizTypes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al buscar negocios");
+      setResults(data.businesses);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddToLeads(biz: ScrapedBusiness, idx: number) {
+    setAddingIdx(idx);
+    try {
+      const sector = SECTOR_MAP[biz.type ?? "Todos"] ?? "AUTOMOTRIZ";
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: "—",
+          lastName: "—",
+          company: biz.name,
+          phone: biz.phone || null,
+          address: biz.address || null,
+          city: zone.split(",")[0]?.trim() || null,
+          sector,
+          notes: `Importado desde DR Scrapp.${biz.address ? ` Dirección: ${biz.address}.` : ""}${biz.website ? ` Web: ${biz.website}` : ""}`,
+        }),
+      });
+      if (!res.ok) throw new Error("Error al agregar lead");
+      setAddedIdxs((prev) => new Set([...prev, idx]));
+      setResults((prev) =>
+        prev?.map((b, i) => (i === idx ? { ...b, isInLeads: true } : b)) ?? prev
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingIdx(null);
+    }
+  }
+
+  const total = results?.length ?? 0;
+  const alreadyIn = results?.filter((b) => b.isInLeads).length ?? 0;
+  const newPotential = total - alreadyIn;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+          <MapPin className="h-7 w-7 text-orange-500" />
+          DR Scrapp
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Encontrá negocios potenciales en Argentina por zona geográfica y agregalos como leads
+        </p>
+      </div>
+
+      {/* Search Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Buscar negocios</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Zona o dirección en Argentina *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Ej: Villa Crespo, Buenos Aires"
+                    value={zone}
+                    onChange={(e) => setZone(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  Radio:{" "}
+                  <span className="font-semibold text-orange-500">{radius} km</span>
+                </Label>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={radius}
+                  onChange={(e) => setRadius(Number(e.target.value))}
+                  className="w-full accent-orange-500 h-2 cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>1 km</span>
+                  <span>10 km</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Tipo de negocio</Label>
+              <div className="flex flex-wrap gap-2">
+                {BUSINESS_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => toggleType(t)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      bizTypes.includes(t)
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : "border-zinc-600 text-muted-foreground hover:border-orange-500 hover:text-foreground"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={!zone.trim() || loading}
+              className="w-full sm:w-auto"
+            >
+              {loading ? (
+                <>
+                  <Search className="h-4 w-4 mr-2 animate-spin" />
+                  Buscando negocios...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Buscar negocios
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-md bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-500">
+          {error}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <Card>
+          <CardContent className="py-6 space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-1/5" />
+                <Skeleton className="h-4 w-1/6" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results */}
+      {results && !loading && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
+              <CardTitle className="text-base">Resultados</CardTitle>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Badge variant="outline">{total} encontrados</Badge>
+                <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/10">
+                  {alreadyIn} ya en leads
+                </Badge>
+                <Badge className="bg-green-500/10 text-green-600 border-green-500/30 hover:bg-green-500/10">
+                  {newPotential} nuevos potenciales
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {results.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                <MapPin className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>No se encontraron negocios en esa zona.</p>
+                <p className="mt-1">Probá con un radio mayor o una zona diferente.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile */}
+                <div className="md:hidden divide-y">
+                  {results.map((biz, idx) => {
+                    const alreadyLead = biz.isInLeads || addedIdxs.has(idx);
+                    return (
+                      <div key={idx} className="p-4 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-sm">{biz.name || "Sin nombre"}</p>
+                          <Badge
+                            className={
+                              alreadyLead
+                                ? "bg-green-500/10 text-green-600 border-green-500/30 shrink-0 hover:bg-green-500/10"
+                                : "shrink-0"
+                            }
+                            variant={alreadyLead ? "outline" : "secondary"}
+                          >
+                            {alreadyLead ? "Ya en leads" : "Nuevo"}
+                          </Badge>
+                        </div>
+                        {biz.address && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            {biz.address}
+                          </p>
+                        )}
+                        {biz.phone && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {biz.phone}
+                          </p>
+                        )}
+                        {!alreadyLead && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mt-2 gap-2"
+                            disabled={addingIdx === idx}
+                            onClick={() => handleAddToLeads(biz, idx)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {addingIdx === idx ? "Agregando..." : "Agregar a Leads"}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Dirección</TableHead>
+                        <TableHead>Teléfono</TableHead>
+                        <TableHead>Web</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {results.map((biz, idx) => {
+                        const alreadyLead = biz.isInLeads || addedIdxs.has(idx);
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium max-w-[180px]">
+                              <span className="block truncate">{biz.name || "Sin nombre"}</span>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <span className="block truncate text-sm text-muted-foreground">
+                                {biz.address || "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {biz.phone ? (
+                                <a
+                                  href={`tel:${biz.phone}`}
+                                  className="hover:text-primary transition-colors"
+                                >
+                                  {biz.phone}
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {biz.website ? (
+                                <a
+                                  href={biz.website}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                >
+                                  <Globe className="h-3.5 w-3.5" />
+                                  Ver
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {alreadyLead ? (
+                                <Badge className="bg-green-500/10 text-green-600 border-green-500/30 hover:bg-green-500/10">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Ya en leads
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Nuevo</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {!alreadyLead ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={addingIdx === idx}
+                                  onClick={() => handleAddToLeads(biz, idx)}
+                                  className="gap-1.5"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  {addingIdx === idx ? "Agregando..." : "Agregar a Leads"}
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
