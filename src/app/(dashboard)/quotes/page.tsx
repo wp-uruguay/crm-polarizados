@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +56,7 @@ const statusLabels: Record<string, string> = {
   CONVERTED: "Convertido",
 };
 
-export default function QuotesPage() {
+function QuotesPageInner() {
   const { format: formatCurrency } = useCurrency();
   const searchParams = useSearchParams();
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -257,5 +257,13 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function QuotesPage() {
+  return (
+    <Suspense>
+      <QuotesPageInner />
+    </Suspense>
   );
 }
