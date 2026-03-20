@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone:*)",
+      "Bash(git -C \"c:/Users/JMGarrido/Desktop/crm-polarizados\" remote add origin https://github.com/wp-uruguay/crm-polarizados)",
+      "Bash(git -C \"c:/Users/JMGarrido/Desktop/crm-polarizados\" pull origin main)",
+      "Bash(node -e \"console.log\\(require\\(''crypto''\\).randomBytes\\(32\\).toString\\(''base64''\\)\\)\")",
+      "Bash(npm install:*)",
+      "Bash(ls \"/c/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(dashboard\\)/\")",
+      "Bash(ls \"/c/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(dashboard\\)/clients/\")",
+      "Bash(ls \"/c/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(dashboard\\)/leads/\")",
+      "Bash(ls \"/c/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(auth\\)/\")",
+      "Bash(npx shadcn@canary add button card dialog dropdown-menu input label select separator table tabs textarea badge avatar sidebar --overwrite --yes)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(npx skills:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node -e \":*)",
+      "Bash(find \"c:/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(dashboard\\)\" -type f -name \"*.tsx\")",
+      "Bash(grep -r \"jsPDF\\\\|pdfmake\\\\|puppeteer\\\\|pdf-lib\\\\|html2pdf\" /c/Users/JMGarrido/Desktop/crm-polarizados --include=*.json --include=*.ts --include=*.tsx)"
+    ]
+  }
+}

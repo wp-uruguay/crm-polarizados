@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   MapPin, Mail, Phone, Filter, Send, User, Upload, Plus,
-  ChevronDown, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
+  ChevronDown, ChevronRight, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, XCircle, Tag, X, Settings2,
 } from "lucide-react";
 import { SoporteModal } from "@/components/soporte-modal";
@@ -835,7 +835,9 @@ export default function LeadsPage() {
                         {subName && <p className="text-xs text-muted-foreground truncate">{subName}</p>}
                       </div>
                       <Link href={`/leads/${lead.id}`}>
-                        <Button variant="outline" size="sm">Ver</Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </Link>
                     </div>
                   );
@@ -848,6 +850,7 @@ export default function LeadsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-9 p-1"></TableHead>
                         <TableHead className="w-9 p-2"></TableHead>
                         <TableHead>Nombre</TableHead>
                         <TableHead className="max-w-[110px]">Empresa</TableHead>
@@ -860,7 +863,6 @@ export default function LeadsPage() {
                         <TableHead>Contactado</TableHead>
                         <TableHead>Vía</TableHead>
                         <TableHead>Asignado a</TableHead>
-                        <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -868,6 +870,13 @@ export default function LeadsPage() {
                         const initials = ((lead.firstName?.[0] ?? "") + (lead.company?.[0] ?? lead.lastName?.[0] ?? "")).toUpperCase() || "?";
                         return (
                           <TableRow key={lead.id}>
+                            <TableCell className="p-1 w-9">
+                              <Link href={`/leads/${lead.id}`}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <ChevronRight className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </TableCell>
                             <TableCell className="p-2 w-9">
                               {lead.avatarUrl ? (
                                 <img src={lead.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
@@ -982,11 +991,6 @@ export default function LeadsPage() {
                             </TableCell>
                             <TableCell className="text-sm whitespace-nowrap">
                               {lead.assignedTo?.name || "Sin asignar"}
-                            </TableCell>
-                            <TableCell>
-                              <Link href={`/leads/${lead.id}`}>
-                                <Button variant="outline" size="sm">Ver</Button>
-                              </Link>
                             </TableCell>
                           </TableRow>
                         );

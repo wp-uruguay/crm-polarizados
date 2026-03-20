@@ -3,42 +3,52 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
+import { downloadRemitoPDF } from "@/components/remito-pdf";
+import { Download } from "lucide-react";
 
-interface Remito {
+interface RemitoRaw {
   id: string;
-  remitoNumber: string;
-  saleNumber: string;
-  clientName: string;
-  date: string;
-  items: Array<{
-    productName: string;
-    quantity: number;
-  }>;
+  number: number;
+  issuedAt: string;
+  notes: string | null;
+  facturaInfo: string | null;
+  sale: {
+    number: number;
+    total: number;
+    subtotal: number;
+    discount: number;
+    tax: number;
+    requiresFactura: boolean;
+    contact: {
+      firstName: string;
+      lastName: string;
+      company: string | null;
+      email: string | null;
+      phone: string | null;
+      address: string | null;
+    };
+    items: Array<{
+      quantity: number;
+      unitPrice: number;
+      total: number;
+      product: { name: string; category: string };
+    }>;
+  };
 }
 
 function RemitosPageInner() {
   const searchParams = useSearchParams();
   const saleIdFilter = searchParams.get("saleId");
 
-  const [remitos, setRemitos] = useState<Remito[]>([]);
+  const [remitos, setRemitos] = useState<RemitoRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [printingId, setPrintingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchRemitos() {
@@ -47,8 +57,7 @@ function RemitosPageInner() {
         if (saleIdFilter) params.set("saleId", saleIdFilter);
         const res = await fetch(`/api/remitos?${params}`);
         if (!res.ok) throw new Error("Error al cargar remitos");
-        const json = await res.json();
-        setRemitos(json);
+        setRemitos(await res.json());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {
@@ -58,16 +67,12 @@ function RemitosPageInner() {
     fetchRemitos();
   }, [saleIdFilter]);
 
-  function handlePrint(remitoId: string) {
-    setPrintingId(remitoId);
-    const printWindow = window.open(`/api/remitos/${remitoId}/print`, "_blank");
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-        setPrintingId(null);
-      };
-    } else {
-      setPrintingId(null);
+  function handleDownloadPDF(remito: RemitoRaw) {
+    setDownloadingId(remito.id);
+    try {
+      downloadRemitoPDF(remito);
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -80,19 +85,15 @@ function RemitosPageInner() {
       <Card>
         <CardContent className="pt-6">
           {loading ? (
-            <p className="text-center text-muted-foreground py-8">
-              Cargando remitos...
-            </p>
+            <p className="text-center text-muted-foreground py-8">Cargando remitos...</p>
           ) : error ? (
-            <div className="rounded-md bg-red-50 p-4 text-red-600">
-              {error}
-            </div>
+            <div className="rounded-md bg-red-50 p-4 text-red-600">{error}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>N.ro Remito</TableHead>
-                  <TableHead>N.ro Venta</TableHead>
+                  <TableHead>#Remito</TableHead>
+                  <TableHead>#Venta</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Items</TableHead>
@@ -102,35 +103,33 @@ function RemitosPageInner() {
               <TableBody>
                 {remitos.map((remito) => (
                   <TableRow key={remito.id}>
-                    <TableCell className="font-medium">
-                      {remito.remitoNumber}
-                    </TableCell>
-                    <TableCell>{remito.saleNumber}</TableCell>
-                    <TableCell>{remito.clientName}</TableCell>
-                    <TableCell>{formatDate(remito.date)}</TableCell>
+                    <TableCell className="font-medium">{remito.number}</TableCell>
+                    <TableCell>{remito.sale?.number}</TableCell>
                     <TableCell>
-                      {(remito.items ?? [])
-                        .map((item) => `${item.productName} x${item.quantity}`)
-                        .join(", ")}
+                      {remito.sale?.contact
+                        ? `${remito.sale.contact.firstName} ${remito.sale.contact.lastName}${remito.sale.contact.company ? ` (${remito.sale.contact.company})` : ""}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell>{formatDate(remito.issuedAt)}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {(remito.sale?.items ?? []).map((i) => `${i.product.name} x${i.quantity}`).join(", ")}
                     </TableCell>
                     <TableCell>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrint(remito.id)}
-                        disabled={printingId === remito.id}
+                        onClick={() => handleDownloadPDF(remito)}
+                        disabled={downloadingId === remito.id}
                       >
-                        {printingId === remito.id ? "Imprimiendo..." : "Imprimir"}
+                        <Download className="h-4 w-4 mr-1" />
+                        {downloadingId === remito.id ? "Generando..." : "PDF"}
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {remitos.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center text-muted-foreground"
-                    >
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No hay remitos registrados
                     </TableCell>
                   </TableRow>

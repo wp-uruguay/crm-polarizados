@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, User } from "lucide-react";
+import { Plus, User, ShieldOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface UserData {
@@ -20,8 +21,20 @@ interface UserData {
 }
 
 export default function SettingsPage() {
+  const { data: session, status } = useSession();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  if (status === "loading") return null;
+  if (session?.user?.role !== "ADMIN") {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[60vh]">
+        <ShieldOff className="h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Acceso restringido</h2>
+        <p className="text-muted-foreground text-sm">Solo los administradores pueden acceder a esta sección.</p>
+      </div>
+    );
+  }
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "OPERATOR" });

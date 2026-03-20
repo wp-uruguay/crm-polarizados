@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   MapPin, Mail, Filter, Send, User, Plus,
-  ChevronDown, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
+  ChevronDown, ChevronRight, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, DollarSign, Tag, X, Settings2,
 } from "lucide-react";
 import { SoporteModal } from "@/components/soporte-modal";
@@ -679,6 +679,7 @@ export default function ClientsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-9 p-1"></TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Rubro</TableHead>
@@ -690,7 +691,6 @@ export default function ClientsPage() {
                     <TableHead>Total Compras</TableHead>
                     <TableHead>Saldo</TableHead>
                     <TableHead>Asignado a</TableHead>
-                    <TableHead>Ver</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -698,6 +698,13 @@ export default function ClientsPage() {
                     const waNum = client.whatsapp ? normalizeWhatsApp(client.whatsapp) : null;
                     return (
                       <TableRow key={client.id}>
+                        <TableCell className="p-1 w-9">
+                          <Link href={`/clients/${client.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </TableCell>
                         <TableCell className="font-medium whitespace-nowrap">
                           {client.firstName} {client.lastName}
                         </TableCell>
@@ -813,11 +820,6 @@ export default function ClientsPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                           {client.assignedTo?.name || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Link href={`/clients/${client.id}`}>
-                            <Button variant="outline" size="sm">Ver</Button>
-                          </Link>
                         </TableCell>
                       </TableRow>
                     );

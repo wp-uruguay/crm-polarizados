@@ -71,6 +71,8 @@ model User {
   assignedLeads   Contact[]      @relation("AssignedTo")
   scheduledVisits Visit[]        @relation("VisitAssignedTo")
   createdVisits   Visit[]        @relation("VisitCreatedBy")
+  scheduledCalls  Call[]         @relation("CallAssignedTo")
+  createdCalls    Call[]         @relation("CallCreatedBy")
   sales           Sale[]
   quotes          Quote[]
   assignedUnits   ProductUnit[]  @relation("UnitAssignedTo")
@@ -145,6 +147,7 @@ model Contact {
 
   tags            ContactTag[]
   visits          Visit[]
+  calls           Call[]
   quotes          Quote[]
   sales           Sale[]
   payments        Payment[]
@@ -169,6 +172,26 @@ model Visit {
   updatedAt     DateTime  @updatedAt
 
   @@map("visits")
+}
+
+model Call {
+  id           String    @id @default(cuid())
+  contactId    String
+  contact      Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedToId String
+  assignedTo   User      @relation("CallAssignedTo", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User      @relation("CallCreatedBy", fields: [createdById], references: [id])
+  scheduledAt  DateTime
+  durationMin  Int?
+  notes        String?   @db.Text
+  completed    Boolean   @default(false)
+  completedAt  DateTime?
+  result       String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("calls")
 }
 
 model Product {
@@ -251,6 +274,7 @@ model Quote {
   discount      Decimal       @default(0) @db.Decimal(10, 2)
   tax           Decimal       @default(0) @db.Decimal(10, 2)
   total         Decimal       @db.Decimal(10, 2)
+  requiresFactura Boolean       @default(false)
   validUntil    DateTime?
   notes         String?       @db.Text
   convertedToSaleId String?
@@ -269,6 +293,7 @@ model Sale {
   contact       Contact       @relation(fields: [contactId], references: [id])
   userId        String
   user          User          @relation(fields: [userId], references: [id])
+  requiresFactura Boolean       @default(false)
   type          SaleType      @default(REGULAR)
   status        SaleStatus    @default(PENDING)
   subtotal      Decimal       @db.Decimal(10, 2)
@@ -306,6 +331,7 @@ model Remito {
   sale        Sale      @relation(fields: [saleId], references: [id])
   issuedAt    DateTime  @default(now())
   notes       String?   @db.Text
+  facturaInfo String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

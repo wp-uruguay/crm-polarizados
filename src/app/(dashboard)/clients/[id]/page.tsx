@@ -2,24 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
+import { CallDialog } from "@/components/call-dialog";
+import { Pencil, FileText, CalendarDays, Phone, ShoppingCart, CreditCard, ChevronLeft } from "lucide-react";
 
 interface ClientDetail {
   id: string;
@@ -60,6 +61,11 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
+  const [callDialogOpen, setCallDialogOpen] = useState(false);
+  const [visitSaving, setVisitSaving] = useState(false);
+  const [visitForm, setVisitForm] = useState({ assignedToId: "", scheduledDate: "", notes: "" });
 
   useEffect(() => {
     async function fetchClient() {
@@ -75,7 +81,23 @@ export default function ClientDetailPage() {
       }
     }
     fetchClient();
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
   }, [clientId]);
+
+  async function handleCreateVisit(e: React.FormEvent) {
+    e.preventDefault();
+    setVisitSaving(true);
+    try {
+      await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: clientId, ...visitForm }),
+      });
+      setVisitDialogOpen(false);
+      setVisitForm({ assignedToId: "", scheduledDate: "", notes: "" });
+    } catch (err) { console.error(err); }
+    finally { setVisitSaving(false); }
+  }
 
   if (loading) {
     return (
@@ -115,16 +137,40 @@ export default function ClientDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
+          <Button variant="ghost" size="sm" className="p-0 h-auto text-muted-foreground hover:text-foreground mb-1" onClick={() => router.push("/clients")}>
+            <ChevronLeft className="h-4 w-4" />Clientes
+          </Button>
           <h1 className="text-3xl font-bold">{client.name}</h1>
-          {client.company && (
-            <p className="text-muted-foreground">{client.company}</p>
-          )}
+          {client.company && <p className="text-muted-foreground">{client.company}</p>}
         </div>
-        <Button variant="outline" onClick={() => router.push("/clients")}>
-          Volver
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/leads/${clientId}`}>
+              <Pencil className="h-4 w-4 mr-1" />Editar
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/quotes?contactId=${clientId}`}>
+              <FileText className="h-4 w-4 mr-1" />Presupuesto
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/sales?contactId=${clientId}`}>
+              <ShoppingCart className="h-4 w-4 mr-1" />Crear Venta
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setVisitDialogOpen(true)}>
+            <CalendarDays className="h-4 w-4 mr-1" />Visita
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setCallDialogOpen(true)}>
+            <Phone className="h-4 w-4 mr-1" />Llamada
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => document.getElementById("payments-section")?.scrollIntoView({ behavior: "smooth" })}>
+            <CreditCard className="h-4 w-4 mr-1" />Pagos
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -246,7 +292,7 @@ export default function ClientDetailPage() {
       </Card>
 
       {/* Payment History */}
-      <Card>
+      <Card id="payments-section">
         <CardHeader>
           <CardTitle>Historial de Pagos</CardTitle>
         </CardHeader>
@@ -285,6 +331,44 @@ export default function ClientDetailPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Visit Dialog */}
+      <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Agendar Visita</DialogTitle></DialogHeader>
+          <form onSubmit={handleCreateVisit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Asignar a</Label>
+              <Select value={visitForm.assignedToId || undefined} onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Fecha y hora *</Label>
+              <input
+                type="datetime-local"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={visitForm.scheduledDate}
+                onChange={(e) => setVisitForm({ ...visitForm, scheduledDate: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Textarea value={visitForm.notes} onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setVisitDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={visitSaving}>{visitSaving ? "Agendando..." : "Agendar"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <CallDialog open={callDialogOpen} onOpenChange={setCallDialogOpen} contactId={clientId} />
     </div>
   );
 }

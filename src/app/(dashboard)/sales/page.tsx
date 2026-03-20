@@ -36,7 +36,7 @@ export default function SalesPage() {
   const [form, setForm] = useState({
     contactId: "", type: "REGULAR",
     items: [{ productId: "", quantity: 1, unitPrice: 0 }] as Array<{ productId: string; quantity: number; unitPrice: number }>,
-    discount: 0, notes: "",
+    discount: 0, notes: "", requiresFactura: false,
   });
 
   useEffect(() => { fetchAll(); }, []);
@@ -74,7 +74,7 @@ export default function SalesPage() {
         body: JSON.stringify({ ...form, subtotal, total: subtotal - form.discount, userId: "system" }),
       });
       setShowForm(false);
-      setForm({ contactId: "", type: "REGULAR", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "" });
+      setForm({ contactId: "", type: "REGULAR", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "", requiresFactura: false });
       fetchAll();
     } catch (err) { console.error(err); }
   }
@@ -132,6 +132,16 @@ export default function SalesPage() {
             <div className="flex gap-4 items-end">
               <div><Label>Descuento</Label><Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} className="w-32" /></div>
               <p className="text-lg font-bold">Total: {formatCurrency(form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) - form.discount)}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="requiresFacturaSale"
+                checked={form.requiresFactura}
+                onChange={(e) => setForm({ ...form, requiresFactura: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="requiresFacturaSale">Requiere facturación</Label>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleCreate}>Crear Venta</Button>

@@ -69,6 +69,7 @@ function QuotesPageInner() {
     items: [{ productId: "", quantity: 1, unitPrice: 0 }] as Array<{ productId: string; quantity: number; unitPrice: number }>,
     discount: 0,
     notes: "",
+    requiresFactura: false,
   });
 
   useEffect(() => {
@@ -138,11 +139,12 @@ function QuotesPageInner() {
           subtotal,
           total,
           notes: form.notes,
+          requiresFactura: form.requiresFactura,
           userId: "system",
         }),
       });
       setShowForm(false);
-      setForm({ contactId: "", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "" });
+      setForm({ contactId: "", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "", requiresFactura: false });
       fetchQuotes();
     } catch (err) { console.error(err); }
   }
@@ -197,12 +199,22 @@ function QuotesPageInner() {
               <Button variant="outline" size="sm" className="mt-2" onClick={addItem}><Plus className="h-4 w-4 mr-1" />Agregar Item</Button>
             </div>
 
-            <div className="flex gap-4 items-end">
+            <div className="flex gap-4 items-end flex-wrap">
               <div>
                 <Label>Descuento</Label>
                 <Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} className="w-32" />
               </div>
               <div className="text-lg font-bold">Total: {formatCurrency(subtotal - form.discount)}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="requiresFactura"
+                checked={form.requiresFactura}
+                onChange={(e) => setForm({ ...form, requiresFactura: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="requiresFactura">Requiere facturación</Label>
             </div>
 
             <div className="flex gap-2">

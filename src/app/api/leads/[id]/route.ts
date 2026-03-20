@@ -20,6 +20,12 @@ export async function GET(
           },
           orderBy: { scheduledDate: "desc" },
         },
+        calls: {
+          include: {
+            assignedTo: { select: { id: true, name: true } },
+          },
+          orderBy: { scheduledAt: "desc" },
+        },
         quotes: {
           include: {
             items: { include: { product: true } },

@@ -15,6 +15,8 @@ import {
   Brain,
   Sparkles,
   MapPin,
+  CalendarDays,
+  Phone,
   Settings,
 } from "lucide-react";
 import {
@@ -42,6 +44,8 @@ const navItems = [
   { label: "AI Insights", href: "/ai-insights", icon: Brain },
   { label: "RRSS Creator", href: "/social-creator", icon: Sparkles },
   { label: "DR Scrapp", href: "/scrapper", icon: MapPin },
+  { label: "Visitas", href: "/calendar/visits", icon: CalendarDays },
+  { label: "Llamadas", href: "/calendar/calls", icon: Phone },
 ];
 
 export function AppSidebar() {
