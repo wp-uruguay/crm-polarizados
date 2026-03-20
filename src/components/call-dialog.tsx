@@ -64,7 +64,7 @@ export function CallDialog({ open, onOpenChange, contactId, onCreated }: CallDia
         body: JSON.stringify({
           contactId,
           scheduledAt: form.scheduledAt,
-          durationMin: form.durationMin ? Number(form.durationMin) : null,
+          durationMin: form.durationMin && form.durationMin !== "none" ? Number(form.durationMin) : null,
           assignedToId: form.assignedToId || undefined,
           notes: form.notes || null,
         }),
@@ -109,7 +109,7 @@ export function CallDialog({ open, onOpenChange, contactId, onCreated }: CallDia
                 <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin definir</SelectItem>
+                <SelectItem value="none">Sin definir</SelectItem>
                 <SelectItem value="15">15 min</SelectItem>
                 <SelectItem value="30">30 min</SelectItem>
                 <SelectItem value="60">1 hora</SelectItem>
