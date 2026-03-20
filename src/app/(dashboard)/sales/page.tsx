@@ -15,7 +15,7 @@ import { Plus, Trash2 } from "lucide-react";
 interface Sale {
   id: string;
   number: number;
-  contact: { firstName: string; lastName: string };
+  contact: { firstName: string; lastName: string; company: string | null };
   type: string;
   status: string;
   total: string;
@@ -24,7 +24,7 @@ interface Sale {
 }
 
 interface Product { id: string; name: string; price: string; stock: number; }
-interface Contact { id: string; firstName: string; lastName: string; type: string; }
+interface Contact { id: string; firstName: string; lastName: string; company: string | null; type: string; }
 
 export default function SalesPage() {
   const { format: formatCurrency } = useCurrency();
@@ -96,7 +96,7 @@ export default function SalesPage() {
                 <Select value={form.contactId || undefined} onValueChange={(v) => setForm({ ...form, contactId: v })}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
-                    {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>)}
+                    {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.company || `${c.firstName} ${c.lastName}`.trim()}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -165,7 +165,7 @@ export default function SalesPage() {
                   return (
                     <TableRow key={sale.id}>
                       <TableCell>#{sale.number}</TableCell>
-                      <TableCell>{sale.contact?.firstName} {sale.contact?.lastName}</TableCell>
+                      <TableCell>{sale.contact?.company || `${sale.contact?.firstName ?? ""} ${sale.contact?.lastName ?? ""}`.trim()}</TableCell>
                       <TableCell><Badge variant={sale.type === "CONSIGNMENT" ? "outline" : "default"}>{sale.type === "CONSIGNMENT" ? "Consignación" : "Regular"}</Badge></TableCell>
                       <TableCell>{formatCurrency(sale.total)}</TableCell>
                       <TableCell>{formatCurrency(paid)}</TableCell>

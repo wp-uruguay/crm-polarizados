@@ -170,7 +170,7 @@ function QuotesPageInner() {
                 <SelectTrigger><SelectValue placeholder="Seleccionar contacto" /></SelectTrigger>
                 <SelectContent>
                   {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.type === "CLIENT" ? "Cliente" : "Lead"})</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.company || `${c.firstName} ${c.lastName}`.trim()} ({c.type === "CLIENT" ? "Cliente" : "Lead"})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -244,7 +244,7 @@ function QuotesPageInner() {
                 {quotes.map((quote) => (
                   <TableRow key={quote.id}>
                     <TableCell>#{quote.number}</TableCell>
-                    <TableCell>{quote.contact?.firstName} {quote.contact?.lastName}</TableCell>
+                    <TableCell>{quote.contact?.company || `${quote.contact?.firstName ?? ""} ${quote.contact?.lastName ?? ""}`.trim()}</TableCell>
                     <TableCell>{quote.items?.length || 0} items</TableCell>
                     <TableCell>{formatCurrency(quote.total)}</TableCell>
                     <TableCell>
