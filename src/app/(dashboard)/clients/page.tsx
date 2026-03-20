@@ -28,6 +28,7 @@ import {
   ChevronDown, ChevronRight, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, DollarSign, Tag, X, Settings2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SoporteModal } from "@/components/soporte-modal";
 import { useCurrency } from "@/contexts/currency-context";
 
@@ -669,8 +670,10 @@ export default function ClientsPage() {
 
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-1.5 py-2">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-md" />
+              ))}
             </div>
           ) : error ? (
             <div className="rounded-md bg-red-50 p-4 text-red-600">{error}</div>
@@ -700,7 +703,7 @@ export default function ClientsPage() {
                       <TableRow key={client.id}>
                         <TableCell className="p-1 w-9">
                           <Link href={`/clients/${client.id}`}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button size="icon" className="h-8 w-8 bg-zinc-900 text-white shadow-md hover:bg-zinc-700 active:shadow-none active:translate-y-px transition-all border border-zinc-700">
                               <ChevronRight className="h-4 w-4" />
                             </Button>
                           </Link>

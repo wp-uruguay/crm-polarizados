@@ -28,6 +28,7 @@ import {
   ChevronDown, ChevronRight, Headphones, Search, ArrowUpDown, ArrowUp, ArrowDown,
   CheckCircle2, XCircle, Tag, X, Settings2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SoporteModal } from "@/components/soporte-modal";
 
 // ── WhatsApp SVG ──────────────────────────────────────────────────────────────
@@ -803,8 +804,10 @@ export default function LeadsPage() {
 
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-1.5 py-2">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-md" />
+              ))}
             </div>
           ) : error ? (
             <div className="rounded-md bg-red-50 p-4 text-red-600">{error}</div>
@@ -826,8 +829,8 @@ export default function LeadsPage() {
                       {lead.avatarUrl ? (
                         <img src={lead.avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover shrink-0" />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
-                          {initials}
+                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
@@ -835,7 +838,7 @@ export default function LeadsPage() {
                         {subName && <p className="text-xs text-muted-foreground truncate">{subName}</p>}
                       </div>
                       <Link href={`/leads/${lead.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <Button size="icon" className="h-8 w-8 shrink-0 bg-zinc-900 text-white shadow-md hover:bg-zinc-700 active:shadow-none active:translate-y-px transition-all border border-zinc-700">
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </Link>
@@ -867,12 +870,11 @@ export default function LeadsPage() {
                     </TableHeader>
                     <TableBody>
                       {visibleLeads.map((lead) => {
-                        const initials = ((lead.firstName?.[0] ?? "") + (lead.company?.[0] ?? lead.lastName?.[0] ?? "")).toUpperCase() || "?";
                         return (
                           <TableRow key={lead.id}>
                             <TableCell className="p-1 w-9">
                               <Link href={`/leads/${lead.id}`}>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button size="icon" className="h-8 w-8 bg-zinc-900 text-white shadow-md hover:bg-zinc-700 active:shadow-none active:translate-y-px transition-all border border-zinc-700">
                                   <ChevronRight className="h-4 w-4" />
                                 </Button>
                               </Link>
@@ -881,8 +883,8 @@ export default function LeadsPage() {
                               {lead.avatarUrl ? (
                                 <img src={lead.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[11px] font-bold text-muted-foreground">
-                                  {initials}
+                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                                  <User className="h-4 w-4 text-muted-foreground" />
                                 </div>
                               )}
                             </TableCell>
