@@ -24,24 +24,15 @@ export default function SettingsPage() {
   const { data: session, status } = useSession();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-
-  if (status === "loading") return null;
-  if (session?.user?.role !== "ADMIN") {
-    return (
-      <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[60vh]">
-        <ShieldOff className="h-12 w-12 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Acceso restringido</h2>
-        <p className="text-muted-foreground text-sm">Solo los administradores pueden acceder a esta sección.</p>
-      </div>
-    );
-  }
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "OPERATOR" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN") fetchUsers();
+  }, [session]);
 
   async function fetchUsers() {
     try {
@@ -80,6 +71,18 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (status === "loading") return null;
+
+  if (session?.user?.role !== "ADMIN") {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[60vh]">
+        <ShieldOff className="h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Acceso restringido</h2>
+        <p className="text-muted-foreground text-sm">Solo los administradores pueden acceder a esta sección.</p>
+      </div>
+    );
   }
 
   return (
@@ -194,14 +197,14 @@ export default function SettingsPage() {
             <span className="text-gray-500">Versión</span><span>1.0.0</span>
           </div>
           <div className="flex justify-between py-2 border-b">
-            <span className="text-gray-500">Framework</span><span>Next.js 15 + Prisma + MySQL</span>
+            <span className="text-gray-500">Framework</span><span>Next.js + Prisma + MySQL</span>
           </div>
           <div className="flex justify-between py-2 border-b">
             <span className="text-gray-500">AI</span><span>Claude (Anthropic)</span>
           </div>
           <div className="flex justify-between py-2">
-            <span className="text-gray-500">API Key Anthropic</span>
-            <span>{process.env.NEXT_PUBLIC_HAS_AI ? "✓ Configurada" : "Sin configurar"}</span>
+            <span className="text-gray-500">Notificaciones</span>
+            <span>{process.env.RESEND_API_KEY ? "✓ Email activo" : "Sin configurar"}</span>
           </div>
         </CardContent>
       </Card>

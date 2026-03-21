@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     const visits = await prisma.visit.findMany({
       where,
       include: {
-        contact: { select: { id: true, firstName: true, lastName: true } },
+        contact: { select: { id: true, firstName: true, lastName: true, company: true } },
         assignedTo: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
       },
@@ -42,20 +43,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "contactId y scheduledDate son requeridos" }, { status: 400 });
     }
 
+    const finalAssignedId = assignedToId || session.user.id;
+
     const visit = await prisma.visit.create({
       data: {
         contactId,
-        assignedToId: assignedToId || session.user.id,
+        assignedToId: finalAssignedId,
         createdById: session.user.id,
         scheduledDate: new Date(scheduledDate),
         notes: notes || null,
       },
       include: {
-        contact: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, name: true } },
+        contact: { select: { id: true, firstName: true, lastName: true, company: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
         createdBy: { select: { id: true, name: true } },
       },
     });
+
+    // Send notification only if assigned to someone else
+    if (finalAssignedId !== session.user.id && visit.assignedTo) {
+      const contactName = visit.contact.company || `${visit.contact.firstName} ${visit.contact.lastName}`.trim();
+      const date = new Date(scheduledDate).toLocaleString("es-AR", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+      await sendNotification({
+        userId: visit.assignedTo.id,
+        userEmail: visit.assignedTo.email,
+        userName: visit.assignedTo.name,
+        type: "VISIT_ASSIGNED",
+        title: "Nueva visita asignada",
+        message: `Se te asignó una visita con <strong>${contactName}</strong> para el ${date}.${notes ? `<br>Notas: ${notes}` : ""}`,
+        link: "/calendar/visits",
+      });
+    }
 
     return NextResponse.json(visit, { status: 201 });
   } catch (error) {

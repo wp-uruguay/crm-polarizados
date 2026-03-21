@@ -5,6 +5,7 @@ import Image from "next/image";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import logoColonia from "@/public/Logo.png";
 import { CurrencyProvider, useCurrency } from "@/contexts/currency-context";
 
@@ -45,6 +46,8 @@ export function MainLayout({ children, title = "Dashboard" }: MainLayoutProps) {
             <Separator orientation="vertical" className="mx-2 h-4" />
             <span className="flex-1 text-sm font-medium text-muted-foreground">{title}</span>
             <CurrencyToggle />
+            <Separator orientation="vertical" className="mx-2 h-4" />
+            <NotificationBell />
             <Separator orientation="vertical" className="mx-2 h-4" />
             <UserMenu />
           </header>
