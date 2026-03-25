@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -220,8 +221,124 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      <div className="space-y-6">
+        <Skeleton className="h-9 w-56" />
+
+        {/* Stat cards skeleton */}
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Skeleton className="h-7 w-16 mb-1" />
+                <Skeleton className="h-3 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Ventas recientes + Agendas/Leads skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-2"><Skeleton className="h-5 w-32" /></CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-8" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-16 ml-auto" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <div className="flex flex-col gap-4">
+            <Card className="flex-1">
+              <CardHeader className="pb-2"><Skeleton className="h-5 w-36" /></CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card className="flex-1">
+              <CardHeader className="pb-2"><Skeleton className="h-5 w-36" /></CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Remitos + Chart skeleton */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <Card>
+            <CardHeader className="pb-2"><Skeleton className="h-5 w-32" /></CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="text-right space-y-1">
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                    <Skeleton className="h-5 w-14 rounded-full ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-950 border-zinc-800">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Skeleton className="h-5 w-20 bg-zinc-800" />
+                  <Skeleton className="h-3 w-28 bg-zinc-800" />
+                </div>
+                <Skeleton className="h-8 w-32 rounded-lg bg-zinc-800" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[240px] flex items-end gap-4 px-4">
+                {[65, 45, 80, 55, 70, 50].map((h, i) => (
+                  <Skeleton key={i} className="flex-1 bg-zinc-800 rounded-t-md" style={{ height: `${h}%` }} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tasks skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-5 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div key={j} className="flex items-center gap-2 px-2 py-1.5">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -505,8 +622,13 @@ export default function DashboardPage() {
 
             {/* Task list */}
             {tasksLoading ? (
-              <div className="flex justify-center py-4">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
               </div>
             ) : tasks.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-3">Sin tareas. ¡Agregá una!</p>
@@ -567,8 +689,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {clickupLoading ? (
-              <div className="flex justify-center py-4">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                    <Skeleton className="h-2 w-2 rounded-full" />
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-3 w-12" />
+                  </div>
+                ))}
               </div>
             ) : clickupError ? (
               <div className="rounded-md bg-muted/40 border p-4 text-sm text-center space-y-2">

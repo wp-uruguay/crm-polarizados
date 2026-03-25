@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import logoColonia from "@/public/Logo.png";
+import logoBlanco from "@/public/logo-blanco.webp";
 
 // ─── Particle canvas ───────────────────────────────────────────────────────────
 interface Particle {
@@ -147,13 +148,12 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Image
-            src="https://api.nl360.site/wp-content/uploads/2026/03/logo-blanco-1.png"
-            alt="Logo"
+            src={logoBlanco}
+            alt="DR Polarizados"
             width={180}
             height={60}
             className="object-contain drop-shadow-lg"
             priority
-            unoptimized
           />
         </div>
 

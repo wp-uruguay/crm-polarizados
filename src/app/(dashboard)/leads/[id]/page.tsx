@@ -18,8 +18,9 @@ import {
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
 import { CallDialog } from "@/components/call-dialog";
+import { UserSearchSelect } from "@/components/user-search-select";
 import {
-  Pencil, FileText, CalendarDays, Phone, ChevronLeft, Check, X, Clock, User,
+  Pencil, FileText, CalendarDays, Phone, ChevronLeft, Check, X, Clock, User, MapPin,
 } from "lucide-react";
 
 interface CallItem {
@@ -273,9 +274,9 @@ export default function LeadDetailPage() {
               </Button>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
-              {lead.firstName} {lead.lastName}
+              {lead.company || `${lead.firstName} ${lead.lastName}`}
             </h1>
-            {lead.company && <p className="text-muted-foreground">{lead.company}</p>}
+            <p className="text-sm text-muted-foreground">{lead.firstName} {lead.lastName}</p>
           </div>
         </div>
 
@@ -375,12 +376,12 @@ export default function LeadDetailPage() {
             <CardContent className="space-y-3">
               <div className="space-y-1">
                 <Label>Asignado a</Label>
-                <Select value={form.assignedToId || undefined} onValueChange={(v) => setForm({ ...form, assignedToId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <UserSearchSelect
+                  users={users}
+                  value={form.assignedToId || ""}
+                  onValueChange={(v) => setForm({ ...form, assignedToId: v })}
+                  placeholder="Sin asignar"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="contacted" checked={form.contacted} onChange={(e) => setForm({ ...form, contacted: e.target.checked })} className="h-4 w-4" />
@@ -497,6 +498,21 @@ export default function LeadDetailPage() {
         </div>
       )}
 
+      {/* Map */}
+      {(lead.address || lead.city) && (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Ubicación</CardTitle></CardHeader>
+          <CardContent>
+            <iframe
+              className="w-full h-[300px] rounded-md border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://maps.google.com/maps?q=${encodeURIComponent([lead.address, lead.city].filter(Boolean).join(", "))}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quotes */}
       <Card>
         <CardHeader><CardTitle>Presupuestos</CardTitle></CardHeader>
@@ -604,12 +620,12 @@ export default function LeadDetailPage() {
           <form onSubmit={handleCreateVisit} className="space-y-4">
             <div className="space-y-2">
               <Label>Asignar a</Label>
-              <Select value={visitForm.assignedToId || undefined} onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <UserSearchSelect
+                users={users}
+                value={visitForm.assignedToId || ""}
+                onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}
+                placeholder="Seleccionar..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Fecha y hora *</Label>

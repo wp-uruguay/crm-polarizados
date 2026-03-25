@@ -20,7 +20,8 @@ import {
 import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
 import { CallDialog } from "@/components/call-dialog";
-import { Pencil, FileText, CalendarDays, Phone, ShoppingCart, CreditCard, ChevronLeft } from "lucide-react";
+import { UserSearchSelect } from "@/components/user-search-select";
+import { Pencil, FileText, CalendarDays, Phone, ShoppingCart, CreditCard, ChevronLeft, MapPin } from "lucide-react";
 
 interface ClientDetail {
   id: string;
@@ -142,8 +143,8 @@ export default function ClientDetailPage() {
           <Button variant="ghost" size="sm" className="p-0 h-auto text-muted-foreground hover:text-foreground mb-1" onClick={() => router.push("/clients")}>
             <ChevronLeft className="h-4 w-4" />Clientes
           </Button>
-          <h1 className="text-3xl font-bold">{client.name}</h1>
-          {client.company && <p className="text-muted-foreground">{client.company}</p>}
+          <h1 className="text-3xl font-bold">{client.company || client.name}</h1>
+          <p className="text-sm text-muted-foreground">{client.name}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" asChild>
@@ -332,6 +333,21 @@ export default function ClientDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Map */}
+      {client.address && (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Ubicación</CardTitle></CardHeader>
+          <CardContent>
+            <iframe
+              className="w-full h-[300px] rounded-md border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(client.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Visit Dialog */}
       <Dialog open={visitDialogOpen} onOpenChange={setVisitDialogOpen}>
         <DialogContent>
@@ -339,12 +355,12 @@ export default function ClientDetailPage() {
           <form onSubmit={handleCreateVisit} className="space-y-4">
             <div className="space-y-2">
               <Label>Asignar a</Label>
-              <Select value={visitForm.assignedToId || undefined} onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <UserSearchSelect
+                users={users}
+                value={visitForm.assignedToId || ""}
+                onValueChange={(v) => setVisitForm({ ...visitForm, assignedToId: v })}
+                placeholder="Seleccionar..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Fecha y hora *</Label>

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { UserSearchSelect } from "@/components/user-search-select";
 
 interface User {
   id: string;
@@ -120,16 +121,12 @@ export function CallDialog({ open, onOpenChange, contactId, onCreated }: CallDia
 
           <div className="space-y-1">
             <Label>Asignado a</Label>
-            <Select value={form.assignedToId} onValueChange={(v) => setForm({ ...form, assignedToId: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar usuario" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <UserSearchSelect
+              users={users}
+              value={form.assignedToId}
+              onValueChange={(v) => setForm({ ...form, assignedToId: v })}
+              placeholder="Seleccionar usuario"
+            />
           </div>
 
           <div className="space-y-1">

@@ -43,14 +43,32 @@ export async function PUT(
     const { items, ...quoteData } = body;
 
     if (items) {
-      const subtotal = items.reduce(
-        (sum: number, item: { quantity: number; unitPrice: number }) =>
-          sum + item.quantity * item.unitPrice,
+      const processedItems = items.map(
+        (item: { productId: string; quantity: number; unitPrice: number; discount?: number; discountType?: string }) => {
+          const lineTotal = item.quantity * item.unitPrice;
+          let discountAmount = 0;
+          if (item.discount && item.discount > 0) {
+            discountAmount = item.discountType === "PERCENT"
+              ? lineTotal * (item.discount / 100)
+              : item.discount;
+          }
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount || 0,
+            discountType: item.discountType || "FIXED",
+            total: lineTotal - discountAmount,
+          };
+        }
+      );
+
+      const subtotal = processedItems.reduce(
+        (sum: number, item: { total: number }) => sum + item.total,
         0
       );
-      const discount = quoteData.discount ?? 0;
       const tax = quoteData.tax ?? 0;
-      const total = subtotal - discount + tax;
+      const total = subtotal + tax;
 
       // Delete existing items and recreate
       await prisma.quoteItem.deleteMany({ where: { quoteId: id } });
@@ -60,14 +78,17 @@ export async function PUT(
         data: {
           ...quoteData,
           subtotal,
+          discount: 0,
           total,
           items: {
-            create: items.map(
-              (item: { productId: string; quantity: number; unitPrice: number }) => ({
+            create: processedItems.map(
+              (item: { productId: string; quantity: number; unitPrice: number; discount: number; discountType: string; total: number }) => ({
                 productId: item.productId,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
-                total: item.quantity * item.unitPrice,
+                discount: item.discount,
+                discountType: item.discountType,
+                total: item.total,
               })
             ),
           },

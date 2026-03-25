@@ -11,17 +11,22 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
-import { Plus, FileText, Trash2 } from "lucide-react";
+import { Plus, FileText, Trash2, Download, Send, Mail } from "lucide-react";
+import { downloadQuotePDF, getQuotePDFBase64 } from "@/components/quote-pdf";
+import type { QuotePDFData } from "@/components/quote-pdf";
 import Link from "next/link";
 
 interface Quote {
   id: string;
   number: number;
-  contact: { id: string; firstName: string; lastName: string; company: string | null };
+  contact: { id: string; firstName: string; lastName: string; company: string | null; email: string | null };
   total: string;
+  subtotal: string;
+  discount: string;
   status: string;
+  sentAt: string | null;
   createdAt: string;
-  items: Array<{ product: { name: string }; quantity: number; total: string }>;
+  items: Array<{ product: { name: string; category?: string }; quantity: number; unitPrice: string; total: string; discount: string; discountType: string }>;
 }
 
 interface Product {
@@ -66,11 +71,12 @@ function QuotesPageInner() {
   const [showForm, setShowForm] = useState(!!searchParams.get("contactId"));
   const [form, setForm] = useState({
     contactId: searchParams.get("contactId") || "",
-    items: [{ productId: "", quantity: 1, unitPrice: 0 }] as Array<{ productId: string; quantity: number; unitPrice: number }>,
-    discount: 0,
+    items: [{ productId: "", quantity: 1, unitPrice: 0, discount: 0, discountType: "FIXED" as "FIXED" | "PERCENT" }] as Array<{ productId: string; quantity: number; unitPrice: number; discount: number; discountType: "FIXED" | "PERCENT" }>,
     notes: "",
     requiresFactura: false,
   });
+  const [createError, setCreateError] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetchQuotes();
@@ -108,7 +114,7 @@ function QuotesPageInner() {
   }
 
   function addItem() {
-    setForm({ ...form, items: [...form.items, { productId: "", quantity: 1, unitPrice: 0 }] });
+    setForm({ ...form, items: [...form.items, { productId: "", quantity: 1, unitPrice: 0, discount: 0, discountType: "FIXED" as "FIXED" | "PERCENT" }] });
   }
 
   function removeItem(index: number) {
@@ -125,31 +131,107 @@ function QuotesPageInner() {
     setForm({ ...form, items });
   }
 
-  async function handleCreate() {
-    const subtotal = form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-    const total = subtotal - form.discount;
+  function computeItemTotal(item: { quantity: number; unitPrice: number; discount: number; discountType: "FIXED" | "PERCENT" }) {
+    const lineTotal = item.quantity * item.unitPrice;
+    if (item.discount <= 0) return lineTotal;
+    const discountAmount = item.discountType === "PERCENT" ? lineTotal * (item.discount / 100) : item.discount;
+    return lineTotal - discountAmount;
+  }
+
+  async function handleCreate(andSend = false) {
+    setCreateError("");
+    const sub = form.items.reduce((s, i) => s + computeItemTotal(i), 0);
+    const total = sub;
     try {
-      await fetch("/api/quotes", {
+      const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contactId: form.contactId,
-          items: form.items.filter((i) => i.productId),
-          discount: form.discount,
-          subtotal,
+          items: form.items.filter((i) => i.productId).map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            discount: i.discount,
+            discountType: i.discountType,
+          })),
+          subtotal: sub,
           total,
           notes: form.notes,
           requiresFactura: form.requiresFactura,
-          userId: "system",
         }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Error al crear presupuesto");
+      }
+      const created = await res.json();
+
+      if (andSend) {
+        setSending(true);
+        try {
+          const pdfData: QuotePDFData = {
+            number: created.number,
+            createdAt: created.createdAt,
+            contact: created.contact,
+            subtotal: sub,
+            discount: 0,
+            total,
+            notes: form.notes || null,
+            items: created.items.map((it: { product: { name: string; category?: string }; quantity: number; unitPrice: string | number; total: string | number; discount: string | number; discountType: string }) => ({
+              product: it.product,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+              total: it.total,
+              discount: Number(it.discount),
+              discountType: it.discountType,
+            })),
+          };
+          const pdfBase64 = await getQuotePDFBase64(pdfData);
+          const sendRes = await fetch(`/api/quotes/${created.id}/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pdfBase64 }),
+          });
+          if (!sendRes.ok) {
+            const data = await sendRes.json().catch(() => null);
+            throw new Error(data?.error || "Error al enviar por email");
+          }
+        } catch (err) {
+          setCreateError(err instanceof Error ? err.message : "Presupuesto creado pero error al enviar email");
+        } finally {
+          setSending(false);
+        }
+      }
+
       setShowForm(false);
-      setForm({ contactId: "", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "", requiresFactura: false });
+      setForm({ contactId: "", items: [{ productId: "", quantity: 1, unitPrice: 0, discount: 0, discountType: "FIXED" }], notes: "", requiresFactura: false });
       fetchQuotes();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Error al crear presupuesto");
+    }
   }
 
-  const subtotal = form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  async function handleDownloadQuote(q: Quote) {
+    await downloadQuotePDF({
+      number: q.number,
+      createdAt: q.createdAt,
+      contact: q.contact,
+      subtotal: q.subtotal,
+      discount: q.discount,
+      total: q.total,
+      items: q.items.map((i) => ({
+        product: i.product,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total,
+        discount: Number(i.discount),
+        discountType: i.discountType,
+      })),
+    });
+  }
+
+  const subtotal = form.items.reduce((s, i) => s + computeItemTotal(i), 0);
 
   return (
     <div className="p-8 space-y-6">
@@ -178,10 +260,18 @@ function QuotesPageInner() {
 
             <div>
               <Label>Productos</Label>
+              <div className="flex flex-wrap gap-2 mt-2 items-end">
+                <span className="flex-1 min-w-[180px] text-xs font-medium text-muted-foreground">Producto</span>
+                <span className="w-20 text-xs font-medium text-muted-foreground">Cantidad</span>
+                <span className="w-28 text-xs font-medium text-muted-foreground">Precio Unit.</span>
+                <span className="w-[6.5rem] text-xs font-medium text-muted-foreground">Descuento</span>
+                <span className="w-28 text-xs font-medium text-muted-foreground">Total</span>
+                <span className="w-10" />
+              </div>
               {form.items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 mt-2">
+                <div key={idx} className="flex flex-wrap gap-2 mt-2 items-end">
                   <Select value={item.productId || undefined} onValueChange={(v) => updateItem(idx, "productId", v)}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar producto" /></SelectTrigger>
+                    <SelectTrigger className="flex-1 min-w-[180px]"><SelectValue placeholder="Seleccionar producto" /></SelectTrigger>
                     <SelectContent>
                       {products.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name} - Stock: {p.stock} - {formatCurrency(p.price)}</SelectItem>
@@ -190,7 +280,17 @@ function QuotesPageInner() {
                   </Select>
                   <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} min={1} placeholder="Cant" />
                   <Input type="number" className="w-28" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)} placeholder="Precio" />
-                  <span className="flex items-center w-28 text-sm">{formatCurrency(item.quantity * item.unitPrice)}</span>
+                  <div className="flex gap-1 items-center">
+                    <Input type="number" className="w-20" value={item.discount} onChange={(e) => updateItem(idx, "discount", parseFloat(e.target.value) || 0)} min={0} placeholder="Dto" />
+                    <Select value={item.discountType} onValueChange={(v) => updateItem(idx, "discountType", v)}>
+                      <SelectTrigger className="w-16"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FIXED">$</SelectItem>
+                        <SelectItem value="PERCENT">%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="flex items-center w-28 text-sm">{formatCurrency(computeItemTotal(item))}</span>
                   {form.items.length > 1 && (
                     <Button variant="ghost" size="icon" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                   )}
@@ -199,12 +299,10 @@ function QuotesPageInner() {
               <Button variant="outline" size="sm" className="mt-2" onClick={addItem}><Plus className="h-4 w-4 mr-1" />Agregar Item</Button>
             </div>
 
+            {createError && <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{createError}</div>}
+
             <div className="flex gap-4 items-end flex-wrap">
-              <div>
-                <Label>Descuento</Label>
-                <Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} className="w-32" />
-              </div>
-              <div className="text-lg font-bold">Total: {formatCurrency(subtotal - form.discount)}</div>
+              <div className="text-lg font-bold">Total: {formatCurrency(subtotal)}</div>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -218,7 +316,10 @@ function QuotesPageInner() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleCreate}>Crear Presupuesto</Button>
+              <Button onClick={() => handleCreate(false)} disabled={sending}>Guardar</Button>
+              <Button variant="default" onClick={() => handleCreate(true)} disabled={sending}>
+                <Send className="h-4 w-4 mr-1" />{sending ? "Enviando..." : "Guardar y Enviar"}
+              </Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
             </div>
           </CardContent>
@@ -236,6 +337,7 @@ function QuotesPageInner() {
                   <TableHead>Items</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Enviado</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
@@ -252,16 +354,28 @@ function QuotesPageInner() {
                         {statusLabels[quote.status] || quote.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {quote.sentAt ? (
+                        <Badge variant="default" className="gap-1"><Mail className="h-3 w-3" />Enviado</Badge>
+                      ) : (
+                        <Badge variant="secondary">No enviado</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{formatDate(quote.createdAt)}</TableCell>
                     <TableCell>
-                      <Link href={`/quotes/${quote.id}`}>
-                        <Button variant="ghost" size="sm"><FileText className="h-4 w-4" /></Button>
-                      </Link>
+                      <div className="flex gap-1">
+                        <Link href={`/quotes/${quote.id}`}>
+                          <Button variant="ghost" size="sm"><FileText className="h-4 w-4" /></Button>
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={() => handleDownloadQuote(quote)} title="Descargar PDF">
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
                 {quotes.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-gray-500">No hay presupuestos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-gray-500">No hay presupuestos</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

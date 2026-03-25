@@ -8,18 +8,20 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Download, Send, Mail } from "lucide-react";
+import { downloadQuotePDF, getQuotePDFBase64 } from "@/components/quote-pdf";
 import Link from "next/link";
 
 interface QuoteDetail {
   id: string;
   number: number;
-  contact: { firstName: string; lastName: string; company: string | null };
+  contact: { firstName: string; lastName: string; company: string | null; email: string | null };
   status: string;
   subtotal: string;
   discount: string;
   total: string;
   notes: string | null;
+  sentAt: string | null;
   createdAt: string;
   items: Array<{
     id: string;
@@ -27,6 +29,8 @@ interface QuoteDetail {
     quantity: number;
     unitPrice: string;
     total: string;
+    discount: string;
+    discountType: string;
   }>;
 }
 
@@ -41,6 +45,9 @@ export default function QuoteDetailPage() {
   const [quote, setQuote] = useState<QuoteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendSuccess, setSendSuccess] = useState("");
 
   useEffect(() => { fetchQuote(); }, [params.id]);
 
@@ -76,6 +83,68 @@ export default function QuoteDetailPage() {
     } catch (err) { console.error(err); }
   }
 
+  async function handleDownload() {
+    if (!quote) return;
+    await downloadQuotePDF({
+      number: quote.number,
+      createdAt: quote.createdAt,
+      contact: quote.contact,
+      subtotal: quote.subtotal,
+      discount: quote.discount,
+      total: quote.total,
+      notes: quote.notes,
+      items: quote.items.map((i) => ({
+        product: i.product,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total,
+        discount: Number(i.discount),
+        discountType: i.discountType,
+      })),
+    });
+  }
+
+  async function handleSendEmail() {
+    if (!quote) return;
+    setSendError("");
+    setSendSuccess("");
+    setSendingEmail(true);
+    try {
+      const pdfBase64 = await getQuotePDFBase64({
+        number: quote.number,
+        createdAt: quote.createdAt,
+        contact: quote.contact,
+        subtotal: quote.subtotal,
+        discount: quote.discount,
+        total: quote.total,
+        notes: quote.notes,
+        items: quote.items.map((i) => ({
+          product: i.product,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          total: i.total,
+          discount: Number(i.discount),
+          discountType: i.discountType,
+        })),
+      });
+      const res = await fetch(`/api/quotes/${params.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64 }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Error al enviar");
+      }
+      setSendSuccess("Presupuesto enviado por email correctamente");
+      fetchQuote();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Error al enviar email");
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   if (loading) return <div className="p-8">Cargando...</div>;
   if (!quote) return <div className="p-8">Presupuesto no encontrado</div>;
 
@@ -85,7 +154,21 @@ export default function QuoteDetailPage() {
         <Link href="/quotes"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <h1 className="text-2xl font-bold">Presupuesto #{quote.number}</h1>
         <Badge>{statusLabels[quote.status]}</Badge>
+        {quote.sentAt && <Badge variant="default" className="gap-1"><Mail className="h-3 w-3" />Enviado</Badge>}
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Download className="h-4 w-4 mr-1" />Descargar PDF
+          </Button>
+          {quote.status !== "CONVERTED" && (
+            <Button variant="default" size="sm" onClick={handleSendEmail} disabled={sendingEmail}>
+              <Send className="h-4 w-4 mr-1" />{sendingEmail ? "Enviando..." : "Enviar por Email"}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {sendError && <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{sendError}</div>}
+      {sendSuccess && <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{sendSuccess}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -103,6 +186,11 @@ export default function QuoteDetailPage() {
           <CardContent className="space-y-2">
             {quote.status === "DRAFT" && (
               <Button className="w-full" variant="outline" onClick={() => updateStatus("SENT")}>Marcar como Enviado</Button>
+            )}
+            {(quote.status === "DRAFT" || quote.status === "SENT") && (
+              <Button className="w-full" onClick={handleSendEmail} disabled={sendingEmail}>
+                <Send className="h-4 w-4 mr-2" />{sendingEmail ? "Enviando..." : "Enviar por Email"}
+              </Button>
             )}
             {quote.status === "SENT" && (
               <div className="flex gap-2">
@@ -129,6 +217,7 @@ export default function QuoteDetailPage() {
                 <TableHead>Categoría</TableHead>
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Precio Unit.</TableHead>
+                <TableHead>Descuento</TableHead>
                 <TableHead>Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -139,14 +228,17 @@ export default function QuoteDetailPage() {
                   <TableCell><Badge variant="outline">{item.product?.category}</Badge></TableCell>
                   <TableCell>{item.quantity}</TableCell>
                   <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                  <TableCell>
+                    {Number(item.discount) > 0
+                      ? item.discountType === "PERCENT" ? `${item.discount}%` : formatCurrency(item.discount)
+                      : "-"}
+                  </TableCell>
                   <TableCell>{formatCurrency(item.total)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
           <div className="mt-4 text-right space-y-1">
-            <p>Subtotal: {formatCurrency(quote.subtotal)}</p>
-            <p>Descuento: {formatCurrency(quote.discount)}</p>
             <p className="text-xl font-bold">Total: {formatCurrency(quote.total)}</p>
           </div>
         </CardContent>

@@ -10,6 +10,10 @@ export async function GET(request: Request) {
 
     const where: Record<string, unknown> = {};
 
+    const active = searchParams.get("active");
+    if (active === "false") where.active = false;
+    else if (active === "true" || active === null) where.active = true;
+
     if (category) where.category = category;
     if (subcategory) where.subcategory = subcategory;
 

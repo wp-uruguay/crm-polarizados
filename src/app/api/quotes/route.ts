@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function GET() {
   try {
     const quotes = await prisma.quote.findMany({
       include: {
         contact: {
-          select: { id: true, firstName: true, lastName: true, company: true },
+          select: { id: true, firstName: true, lastName: true, company: true, email: true },
         },
         items: {
           include: {
@@ -34,40 +35,65 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { contactId, userId, items, discount = 0, tax = 0, validUntil, notes } = body;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
 
-    const subtotal = items.reduce(
-      (sum: number, item: { quantity: number; unitPrice: number }) =>
-        sum + item.quantity * item.unitPrice,
-      0
+    const body = await request.json();
+    const { contactId, items, tax = 0, validUntil, notes, requiresFactura } = body;
+
+    // Calculate per-item totals accounting for per-item discounts
+    const processedItems = items.map(
+      (item: { productId: string; quantity: number; unitPrice: number; discount?: number; discountType?: string }) => {
+        const lineTotal = item.quantity * item.unitPrice;
+        let discountAmount = 0;
+        if (item.discount && item.discount > 0) {
+          discountAmount = item.discountType === "PERCENT"
+            ? lineTotal * (item.discount / 100)
+            : item.discount;
+        }
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount || 0,
+          discountType: item.discountType || "FIXED",
+          total: lineTotal - discountAmount,
+        };
+      }
     );
-    const total = subtotal - discount + tax;
+
+    const subtotal = processedItems.reduce((sum: number, i: { total: number }) => sum + i.total, 0);
+    const total = subtotal + tax;
 
     const quote = await prisma.quote.create({
       data: {
         contactId,
-        userId,
+        userId: session.user.id,
         subtotal,
-        discount,
+        discount: 0,
         tax,
         total,
+        requiresFactura: requiresFactura || false,
         validUntil: validUntil ? new Date(validUntil) : null,
         notes,
         items: {
-          create: items.map(
-            (item: { productId: string; quantity: number; unitPrice: number }) => ({
+          create: processedItems.map(
+            (item: { productId: string; quantity: number; unitPrice: number; discount: number; discountType: string; total: number }) => ({
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              total: item.quantity * item.unitPrice,
+              discount: item.discount,
+              discountType: item.discountType,
+              total: item.total,
             })
           ),
         },
       },
       include: {
         contact: {
-          select: { id: true, firstName: true, lastName: true, company: true },
+          select: { id: true, firstName: true, lastName: true, company: true, email: true },
         },
         items: {
           include: { product: true },

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, User, ShieldOff } from "lucide-react";
+import { Plus, User, ShieldOff, AlertTriangle, Pencil, Save, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface UserData {
@@ -30,9 +30,54 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Fixed message
+  const [msgTitle, setMsgTitle] = useState("Mensaje fijo");
+  const [msgBody, setMsgBody] = useState("Aquí podremos destacar mensajes importantes que solo veremos nosotros.");
+  const [editMsgTitle, setEditMsgTitle] = useState("");
+  const [editMsgBody, setEditMsgBody] = useState("");
+  const [editingMsg, setEditingMsg] = useState(false);
+  const [savingMsg, setSavingMsg] = useState(false);
+
   useEffect(() => {
     if (session?.user?.role === "ADMIN") fetchUsers();
+    fetchMessage();
   }, [session]);
+
+  async function fetchMessage() {
+    try {
+      const res = await fetch("/api/settings/message");
+      if (res.ok) {
+        const data = await res.json();
+        setMsgTitle(data.title);
+        setMsgBody(data.body);
+      }
+    } catch { /* silent */ }
+  }
+
+  function startEditMsg() {
+    setEditMsgTitle(msgTitle);
+    setEditMsgBody(msgBody);
+    setEditingMsg(true);
+  }
+
+  async function saveMessage() {
+    if (!confirm("¿Guardar los cambios en el mensaje fijo?")) return;
+    setSavingMsg(true);
+    try {
+      const res = await fetch("/api/settings/message", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editMsgTitle, body: editMsgBody }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMsgTitle(data.title);
+        setMsgBody(data.body);
+        setEditingMsg(false);
+      }
+    } catch { /* silent */ }
+    finally { setSavingMsg(false); }
+  }
 
   async function fetchUsers() {
     try {
@@ -208,6 +253,62 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5 space-y-3">
+        {editingMsg ? (
+          <>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Título del mensaje</Label>
+                <Input
+                  value={editMsgTitle}
+                  onChange={(e) => setEditMsgTitle(e.target.value)}
+                  placeholder="Título del mensaje..."
+                  className="bg-zinc-900 border-zinc-700"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Cuerpo del mensaje</Label>
+                <Input
+                  value={editMsgBody}
+                  onChange={(e) => setEditMsgBody(e.target.value)}
+                  placeholder="Texto del mensaje..."
+                  className="bg-zinc-900 border-zinc-700"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button size="sm" onClick={saveMessage} disabled={savingMsg} className="gap-1.5">
+                <Save size={14} />
+                {savingMsg ? "Guardando..." : "Guardar"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingMsg(false)} disabled={savingMsg} className="gap-1.5">
+                <X size={14} />
+                Cancelar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-start justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-sm">
+                <AlertTriangle size={16} className="text-red-800" />
+                {msgTitle}
+              </h3>
+              {(session?.user as { role?: string })?.role === "ADMIN" && (
+                <button
+                  onClick={startEditMsg}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Editar mensaje"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{msgBody}</p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -26,7 +26,7 @@ export async function sendNotification(payload: NotifyPayload) {
   try {
     const resend = new Resend(apiKey);
     await resend.emails.send({
-      from: "CRM Polarizados <notificaciones@colonia.cloud>",
+      from: "DR Polarizados <notificaciones@colonia.cloud>",
       to: userEmail,
       subject: title,
       html: `
@@ -36,7 +36,7 @@ export async function sendNotification(payload: NotifyPayload) {
           <p style="color:#444;margin-bottom:24px;">${message}</p>
           ${link ? `<a href="${process.env.NEXTAUTH_URL}${link}" style="display:inline-block;padding:10px 20px;background:#000;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">Ver detalles</a>` : ""}
           <hr style="margin:24px 0;border:none;border-top:1px solid #e5e5e5;" />
-          <p style="color:#888;font-size:12px;">Este es un mensaje automático del CRM Polarizados. No respondas a este correo.</p>
+          <p style="color:#888;font-size:12px;">Este es un mensaje automático de DR Polarizados. No respondas a este correo.</p>
         </div>
       `,
     });

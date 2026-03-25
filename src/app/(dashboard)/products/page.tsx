@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -25,6 +26,7 @@ import {
 import {
   Plus, Trash2, Sparkles, Filter, ChevronDown,
   Search, Package, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown,
+  Ban, Power, Settings2,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 
@@ -141,6 +143,10 @@ export default function ProductsPage() {
   ].filter(Boolean).length;
 
   // Create/Edit modal
+  // Selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -185,6 +191,57 @@ export default function ProductsPage() {
     setFilterSubcategory(null);
     setFilterLowStock(false);
     setSortDate(null);
+  }
+
+  // ── Selection helpers ─────────────────────────────────────────────────────
+  const toggleOne = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) =>
+      prev.size === visibleProducts.length
+        ? new Set()
+        : new Set(visibleProducts.map((p) => p.id))
+    );
+  }, [visibleProducts]);
+
+  // ── Bulk operations ───────────────────────────────────────────────────────
+  async function bulkDeactivate() {
+    if (!confirm(`¿Desactivar ${selected.size} producto(s)?`)) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/products/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], action: "deactivate" }),
+      });
+      if (!res.ok) throw new Error();
+      setSelected(new Set());
+      fetchProducts();
+    } catch { setError("Error al desactivar productos"); }
+    finally { setBulkLoading(false); }
+  }
+
+  async function bulkDelete() {
+    if (!confirm(`¿Eliminar ${selected.size} producto(s) permanentemente? Esta acción no se puede deshacer.`)) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/products/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], action: "delete" }),
+      });
+      if (!res.ok) throw new Error();
+      setSelected(new Set());
+      fetchProducts();
+    } catch { setError("Error al eliminar productos"); }
+    finally { setBulkLoading(false); }
   }
 
   // ── Image handling ────────────────────────────────────────────────────────
@@ -491,8 +548,8 @@ export default function ProductsPage() {
               </button>
             </div>
 
-            {/* Button Group */}
-            <div className="flex items-center">
+            {/* Desktop: Inline Button Group */}
+            <div className="hidden md:flex items-center">
 
               {/* Filtrar */}
               <DropdownMenu>
@@ -574,13 +631,127 @@ export default function ProductsPage() {
 
               {/* Stock bajo rápido */}
               <button
-                className={btnLast + (filterLowStock ? " !bg-zinc-700 !text-amber-400" : "")}
+                className={btnMiddle + (filterLowStock ? " !bg-zinc-700 !text-amber-400" : "")}
                 onClick={() => setFilterLowStock(!filterLowStock)}
               >
                 <AlertTriangle size={14} />
                 Stock bajo
               </button>
+
+              {/* Desactivados */}
+              <Link href="/products/deactivated">
+                <button className={btnLast}>
+                  <Ban size={14} />
+                  Desactivados
+                </button>
+              </Link>
             </div>
+
+            {/* Mobile: Single Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2 h-9 md:hidden">
+                  <Settings2 size={14} />
+                  Acciones
+                  {activeFilterCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                  <ChevronDown size={12} className="opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <Filter size={13} />
+                    Filtrar
+                    {activeFilterCount > 0 && <span className="ml-auto text-xs text-muted-foreground">{activeFilterCount}</span>}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-52">
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><ArrowUpDown size={13} />Por fecha</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setSortDate("desc")} className="gap-2">
+                          <ArrowDown size={13} /> Más recientes {sortDate === "desc" && "✓"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortDate("asc")} className="gap-2">
+                          <ArrowUp size={13} /> Más antiguos {sortDate === "asc" && "✓"}
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><Package size={13} />Por categoría</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {Object.entries(CATEGORY_LABEL).map(([val, label]) => (
+                          <DropdownMenuItem key={val} onClick={() => { setFilterCategory(filterCategory === val ? null : val); setFilterSubcategory(null); }} className="gap-2">
+                            {label} {filterCategory === val && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    {filterCategory && (SUBCATEGORIES[filterCategory] ?? []).length > 0 && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="gap-2"><Filter size={13} />Por subcategoría</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {(SUBCATEGORIES[filterCategory] ?? []).map((sub) => (
+                            <DropdownMenuItem key={sub.value} onClick={() => setFilterSubcategory(filterSubcategory === sub.value ? null : sub.value)} className="gap-2">
+                              {sub.label} {filterSubcategory === sub.value && "✓"}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )}
+                    <DropdownMenuItem onClick={() => setFilterLowStock(!filterLowStock)} className="gap-2">
+                      <AlertTriangle size={13} className="text-amber-500" /> Stock bajo {filterLowStock && "✓"}
+                    </DropdownMenuItem>
+                    {activeFilterCount > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={clearFilters} className="text-destructive gap-2">Limpiar filtros</DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setFilterLowStock(!filterLowStock)} className="gap-2">
+                  <AlertTriangle size={13} className={filterLowStock ? "text-amber-400" : "text-amber-500"} />
+                  Stock bajo {filterLowStock && "✓"}
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/products/deactivated" className="gap-2">
+                    <Ban size={13} /> Desactivados
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Bulk actions - shown when products selected */}
+            {selected.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-sm text-muted-foreground">{selected.size} seleccionado{selected.size > 1 ? "s" : ""}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={bulkDeactivate}
+                  disabled={bulkLoading}
+                  className="gap-1.5 text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
+                >
+                  <Power size={14} />
+                  Desactivar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={bulkDelete}
+                  disabled={bulkLoading}
+                  className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  <Trash2 size={14} />
+                  Eliminar
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
 
@@ -596,6 +767,13 @@ export default function ProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={visibleProducts.length > 0 && selected.size === visibleProducts.length}
+                        onCheckedChange={toggleAll}
+                        aria-label="Seleccionar todos"
+                      />
+                    </TableHead>
                     <TableHead>Foto</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Categoría</TableHead>
@@ -612,7 +790,14 @@ export default function ProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {visibleProducts.map((product) => (
-                    <TableRow key={product.id}>
+                    <TableRow key={product.id} className={selected.has(product.id) ? "bg-muted/50" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selected.has(product.id)}
+                          onCheckedChange={() => toggleOne(product.id)}
+                          aria-label={`Seleccionar ${product.name}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         {product.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -678,7 +863,7 @@ export default function ProductsPage() {
                   ))}
                   {visibleProducts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                         No se encontraron productos
                       </TableCell>
                     </TableRow>

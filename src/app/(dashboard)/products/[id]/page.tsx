@@ -21,6 +21,7 @@ import {
   ArrowLeft, Package, Sparkles, Plus, Trash2, Send, QrCode, Check,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { UserSearchSelect } from "@/components/user-search-select";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SUBCATEGORIES: Record<string, { value: string; label: string }[]> = {
@@ -568,15 +569,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div className="space-y-1">
                   <Label>Asignar a usuario</Label>
-                  <Select value={assignUserId} onValueChange={setAssignUserId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar usuario..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassign">— Sin asignar —</SelectItem>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UserSearchSelect
+                    users={users}
+                    value={assignUserId}
+                    onValueChange={setAssignUserId}
+                    placeholder="Seleccionar usuario..."
+                    showUnassign
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label>Notas de envío</Label>

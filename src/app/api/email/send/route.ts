@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    const displayName = fromName || process.env.RESEND_FROM_NAME || "CRM Polarizados";
+    const displayName = fromName || process.env.RESEND_FROM_NAME || "DR Polarizados";
 
     const { data, error } = await resend.emails.send({
       from: `${displayName} <${fromEmail}>`,
