@@ -1,36 +1,28 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
   DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Plus, Trash2, Sparkles, Filter, ChevronDown,
+  Plus, Trash2, Filter, ChevronDown,
   Search, Package, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown,
   Ban, Power, Settings2,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// -- Constants ---------------------------------------------------------------
 const SUBCATEGORIES: Record<string, { value: string; label: string }[]> = {
   AUTOMOTIVE: [
     { value: "PREMIUM", label: "Premium" },
@@ -52,11 +44,6 @@ const SUBCATEGORIES: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
-const SHADE_OPTIONS = Array.from({ length: 15 }, (_, i) => {
-  const val = String((i + 1) * 5).padStart(2, "0");
-  return { value: val, label: `${val}%` };
-});
-
 const CATEGORY_LABEL: Record<string, string> = {
   AUTOMOTIVE: "Automotriz",
   ARCHITECTURAL: "Arquitectónica",
@@ -69,7 +56,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   PPF: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
 };
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// -- Types -------------------------------------------------------------------
 interface Discount {
   id?: string;
   type: "FIXED" | "PERCENTAGE";
@@ -96,7 +83,7 @@ interface Product {
   _count: { units: number };
 }
 
-// ── Button group classes ───────────────────────────────────────────────────────
+// -- Button group classes ----------------------------------------------------
 const btnBase =
   "h-9 px-3 text-sm font-medium border border-zinc-700 bg-zinc-900 text-zinc-100 " +
   "hover:bg-zinc-800 hover:border-zinc-600 transition-colors flex items-center gap-1.5 " +
@@ -105,21 +92,7 @@ const btnFirst = btnBase + " rounded-l-md border-r-0";
 const btnMiddle = btnBase + " border-r-0";
 const btnLast = btnBase + " rounded-r-md";
 
-const EMPTY_FORM = {
-  name: "",
-  category: "AUTOMOTIVE",
-  subcategory: "",
-  brand: "",
-  shade: "",
-  stock: "0",
-  minStock: "0",
-  price: "",
-  cost: "",
-  description: "",
-  imageUrl: "",
-};
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+// -- Page --------------------------------------------------------------------
 export default function ProductsPage() {
   const { format: formatCurrency } = useCurrency();
   const [products, setProducts] = useState<Product[]>([]);
@@ -142,20 +115,11 @@ export default function ProductsPage() {
     sortDate !== null,
   ].filter(Boolean).length;
 
-  // Create/Edit modal
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
-  const [discounts, setDiscounts] = useState<Discount[]>([]);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [improvingDesc, setImprovingDesc] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // -- Fetch -----------------------------------------------------------------
   async function fetchProducts() {
     try {
       setLoading(true);
@@ -173,7 +137,7 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); }, [search]);
 
-  // ── Client-side filter ────────────────────────────────────────────────────
+  // -- Client-side filter ----------------------------------------------------
   const visibleProducts = useMemo(() => {
     let result = [...products];
     if (filterCategory) result = result.filter((p) => p.category === filterCategory);
@@ -193,7 +157,7 @@ export default function ProductsPage() {
     setSortDate(null);
   }
 
-  // ── Selection helpers ─────────────────────────────────────────────────────
+  // -- Selection helpers -----------------------------------------------------
   const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -211,9 +175,9 @@ export default function ProductsPage() {
     );
   }, [visibleProducts]);
 
-  // ── Bulk operations ───────────────────────────────────────────────────────
+  // -- Bulk operations -------------------------------------------------------
   async function bulkDeactivate() {
-    if (!confirm(`¿Desactivar ${selected.size} producto(s)?`)) return;
+    if (!confirm(`Desactivar ${selected.size} producto(s)?`)) return;
     setBulkLoading(true);
     try {
       const res = await fetch("/api/products/bulk", {
@@ -229,7 +193,7 @@ export default function ProductsPage() {
   }
 
   async function bulkDelete() {
-    if (!confirm(`¿Eliminar ${selected.size} producto(s) permanentemente? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`Eliminar ${selected.size} producto(s) permanentemente? Esta acción no se puede deshacer.`)) return;
     setBulkLoading(true);
     try {
       const res = await fetch("/api/products/bulk", {
@@ -244,287 +208,23 @@ export default function ProductsPage() {
     finally { setBulkLoading(false); }
   }
 
-  // ── Image handling ────────────────────────────────────────────────────────
-  function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert("La imagen no puede superar 2MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const b64 = ev.target?.result as string;
-      setForm((f) => ({ ...f, imageUrl: b64 }));
-      setImagePreview(b64);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  // ── AI description ─────────────────────────────────────────────────────────
-  async function improveDescription() {
-    setImprovingDesc(true);
-    try {
-      const res = await fetch("/api/ai/describe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: form.description,
-          productName: form.name,
-          category: CATEGORY_LABEL[form.category] ?? form.category,
-          subcategory: form.subcategory,
-          shade: form.shade,
-          brand: form.brand,
-        }),
-      });
-      const json = await res.json();
-      if (res.ok && json.description) {
-        setForm((f) => ({ ...f, description: json.description }));
-      }
-    } catch { /* silent */ }
-    finally { setImprovingDesc(false); }
-  }
-
-  // ── Discounts ─────────────────────────────────────────────────────────────
-  function addDiscount() {
-    setDiscounts((d) => [...d, { type: "PERCENTAGE", value: 0, label: "" }]);
-  }
-
-  function removeDiscount(idx: number) {
-    setDiscounts((d) => d.filter((_, i) => i !== idx));
-  }
-
-  function updateDiscount(idx: number, patch: Partial<Discount>) {
-    setDiscounts((d) => d.map((item, i) => i === idx ? { ...item, ...patch } : item));
-  }
-
-  // ── Create product ────────────────────────────────────────────────────────
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setCreating(true);
-    try {
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          category: form.category,
-          subcategory: form.subcategory || null,
-          brand: form.brand || null,
-          shade: form.shade || null,
-          stock: parseInt(form.stock) || 0,
-          minStock: parseInt(form.minStock) || 0,
-          price: parseFloat(form.price) || 0,
-          cost: form.cost ? parseFloat(form.cost) : null,
-          description: form.description || null,
-          imageUrl: form.imageUrl || null,
-          discounts: discounts.filter((d) => d.value > 0),
-        }),
-      });
-      if (!res.ok) throw new Error("Error al crear producto");
-      setDialogOpen(false);
-      resetForm();
-      fetchProducts();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear producto");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function resetForm() {
-    setForm({ ...EMPTY_FORM });
-    setDiscounts([]);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
   function applySearch() { setSearch(searchInput); }
-
-  // ── Shade options (PPF = manual input) ───────────────────────────────────
-  const isPPF = form.category === "AUTOMOTIVE" && form.subcategory === "PPF";
 
   return (
     <div className="space-y-6">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Productos / Stock</h1>
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2">
-          <Plus size={16} />
-          Nuevo Producto
-        </Button>
+        <Link href="/products/new">
+          <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white">
+            <Plus size={16} />
+            Nuevo Producto
+          </Button>
+        </Link>
       </div>
 
-      {/* ── Create Product Modal ── */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Crear Nuevo Producto</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
-
-            {/* Nombre */}
-            <div className="space-y-1">
-              <Label>Nombre del producto *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Ej: Lámina Premium Negro" />
-            </div>
-
-            {/* Categoría + Subcategoría */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Categoría *</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AUTOMOTIVE">Automotriz</SelectItem>
-                    <SelectItem value="ARCHITECTURAL">Arquitectónica</SelectItem>
-                    <SelectItem value="PPF">PPF</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Subcategoría</Label>
-                <Select value={form.subcategory || undefined} onValueChange={(v) => setForm({ ...form, subcategory: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                  <SelectContent>
-                    {(SUBCATEGORIES[form.category] ?? []).map((sub) => (
-                      <SelectItem key={sub.value} value={sub.value}>{sub.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Tonalidad + Marca */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Tonalidad {isPPF && <span className="text-muted-foreground text-xs">(manual)</span>}</Label>
-                {isPPF ? (
-                  <Input value={form.shade} onChange={(e) => setForm({ ...form, shade: e.target.value })} placeholder="Ej: Gloss, Matte..." />
-                ) : (
-                  <Select value={form.shade || undefined} onValueChange={(v) => setForm({ ...form, shade: v })}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {SHADE_OPTIONS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label>Marca</Label>
-                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Ej: 3M, Llumar..." />
-              </div>
-            </div>
-
-            {/* Stock + Min Stock */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Stock inicial</Label>
-                <Input type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Stock mínimo</Label>
-                <Input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-              </div>
-            </div>
-
-            {/* Precio + Costo */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Precio de venta *</Label>
-                <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Costo</Label>
-                <Input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Opcional" />
-              </div>
-            </div>
-
-            {/* Imagen */}
-            <div className="space-y-1">
-              <Label>Foto del producto</Label>
-              <div className="flex items-center gap-3">
-                <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageFile} className="flex-1" />
-                {(imagePreview || form.imageUrl) && (
-                  <div className="w-16 h-16 rounded-md border overflow-hidden shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview ?? form.imageUrl ?? ""} alt="preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">Máximo 2MB. Se almacena como imagen embebida.</p>
-            </div>
-
-            {/* Descripción + IA */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label>Descripción</Label>
-                <Button type="button" variant="outline" size="sm" onClick={improveDescription} disabled={improvingDesc} className="gap-1.5 h-7 text-xs">
-                  <Sparkles size={13} className="text-primary" />
-                  {improvingDesc ? "Procesando..." : "Mejorar con IA"}
-                </Button>
-              </div>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={3}
-                placeholder="Descripción técnica del producto..."
-              />
-            </div>
-
-            {/* Descuentos */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Descuentos</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addDiscount} className="gap-1.5 h-7 text-xs">
-                  <Plus size={12} /> Agregar descuento
-                </Button>
-              </div>
-              {discounts.length === 0 && (
-                <p className="text-xs text-muted-foreground">Sin descuentos configurados.</p>
-              )}
-              {discounts.map((discount, idx) => (
-                <div key={idx} className="flex items-center gap-2 rounded-md border px-3 py-2">
-                  <div className="flex-1 space-y-0">
-                    <Input
-                      placeholder="Etiqueta (ej: Mayorista)"
-                      value={discount.label}
-                      onChange={(e) => updateDiscount(idx, { label: e.target.value })}
-                      className="h-7 text-xs border-0 px-0 focus-visible:ring-0 bg-transparent"
-                    />
-                  </div>
-                  <Select value={discount.type} onValueChange={(v) => updateDiscount(idx, { type: v as "FIXED" | "PERCENTAGE" })}>
-                    <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PERCENTAGE">%</SelectItem>
-                      <SelectItem value="FIXED">$ Fijo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={discount.value}
-                    onChange={(e) => updateDiscount(idx, { value: parseFloat(e.target.value) || 0 })}
-                    className="h-7 w-20 text-xs"
-                  />
-                  <button type="button" onClick={() => removeDiscount(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={creating}>{creating ? "Creando..." : "Crear Producto"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Table Card ── */}
+      {/* Table Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -629,7 +329,7 @@ export default function ProductsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Stock bajo rápido */}
+              {/* Stock bajo rapido */}
               <button
                 className={btnMiddle + (filterLowStock ? " !bg-zinc-700 !text-amber-400" : "")}
                 onClick={() => setFilterLowStock(!filterLowStock)}
@@ -774,6 +474,7 @@ export default function ProductsPage() {
                         aria-label="Seleccionar todos"
                       />
                     </TableHead>
+                    <TableHead>Ver</TableHead>
                     <TableHead>Foto</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Categoría</TableHead>
@@ -785,7 +486,6 @@ export default function ProductsPage() {
                     <TableHead>Descuentos</TableHead>
                     <TableHead>Unidades</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Ver</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -797,6 +497,11 @@ export default function ProductsPage() {
                           onCheckedChange={() => toggleOne(product.id)}
                           aria-label={`Seleccionar ${product.name}`}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/products/${product.id}`}>
+                          <Button variant="outline" size="sm">Ver</Button>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         {product.imageUrl ? (
@@ -853,11 +558,6 @@ export default function ProductsPage() {
                         ) : (
                           <Badge variant="default" className="whitespace-nowrap bg-green-600">OK</Badge>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/products/${product.id}`}>
-                          <Button variant="outline" size="sm">Ver</Button>
-                        </Link>
                       </TableCell>
                     </TableRow>
                   ))}

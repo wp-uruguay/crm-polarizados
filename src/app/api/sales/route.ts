@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -52,6 +54,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       contactId,
@@ -130,12 +137,27 @@ export async function POST(request: Request) {
     const sale = await prisma.sale.findUnique({
       where: { id: result.id },
       include: {
-        contact: true,
+        contact: { include: { assignedTo: { select: { id: true, name: true, email: true } } } },
+        user: { select: { id: true, name: true } },
         items: { include: { product: true } },
         remito: true,
         payments: true,
       },
     });
+
+    // Notify the contact's assigned user if different from the sale creator
+    if (sale?.contact.assignedTo && sale.contact.assignedTo.id !== session.user.id) {
+      const contactName = sale.contact.company || `${sale.contact.firstName} ${sale.contact.lastName}`.trim();
+      await sendNotification({
+        userId: sale.contact.assignedTo.id,
+        userEmail: sale.contact.assignedTo.email!,
+        userName: sale.contact.assignedTo.name,
+        type: "SALE_CREATED",
+        title: "Nueva venta registrada",
+        message: `Se registró una venta a <strong>${contactName}</strong> por $${sale.total}.`,
+        link: "/sales",
+      });
+    }
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {

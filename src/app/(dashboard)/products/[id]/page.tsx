@@ -18,7 +18,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, Package, Sparkles, Plus, Trash2, Send, QrCode, Check,
+  ArrowLeft, Package, Sparkles, Plus, Trash2, Send, QrCode, Check, ImagePlus,
+  Pencil, DollarSign, Layers, Tag, BarChart3, Info,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { UserSearchSelect } from "@/components/user-search-select";
@@ -52,7 +53,7 @@ const SHADE_OPTIONS = Array.from({ length: 15 }, (_, i) => {
 
 const CATEGORY_LABEL: Record<string, string> = {
   AUTOMOTIVE: "Automotriz",
-  ARCHITECTURAL: "Arquitectónica",
+  ARCHITECTURAL: "Arquitect\u00f3nica",
   PPF: "PPF",
 };
 
@@ -68,6 +69,13 @@ interface Discount {
   type: "FIXED" | "PERCENTAGE";
   value: number;
   label: string;
+}
+
+interface PriceTier {
+  id?: string;
+  tierType: "PACK" | "VOLUME";
+  minQty: number;
+  price: number;
 }
 
 interface ProductUnit {
@@ -116,12 +124,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [saving, setSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
 
-  // Edit form
+  // Edit modal
+  const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({
     name: "", category: "AUTOMOTIVE", subcategory: "", brand: "",
     shade: "", stock: "0", minStock: "0", price: "", cost: "", description: "", imageUrl: "",
   });
   const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [priceTiers, setPriceTiers] = useState<PriceTier[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [improvingDesc, setImprovingDesc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,26 +157,32 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       if (!res.ok) throw new Error("Producto no encontrado");
       const data: ProductDetail = await res.json();
       setProduct(data);
-      setForm({
-        name: data.name,
-        category: data.category,
-        subcategory: data.subcategory ?? "",
-        brand: data.brand ?? "",
-        shade: data.shade ?? "",
-        stock: String(data.stock),
-        minStock: String(data.minStock),
-        price: String(data.price),
-        cost: data.cost != null ? String(data.cost) : "",
-        description: data.description ?? "",
-        imageUrl: data.imageUrl ?? "",
-      });
-      setDiscounts(data.discounts.map((d) => ({ ...d, value: Number(d.value), label: d.label ?? "" })));
-      if (data.imageUrl) setImagePreview(data.imageUrl);
+      populateForm(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
+  }
+
+  function populateForm(data: ProductDetail) {
+    setForm({
+      name: data.name,
+      category: data.category,
+      subcategory: data.subcategory ?? "",
+      brand: data.brand ?? "",
+      shade: data.shade ?? "",
+      stock: String(data.stock),
+      minStock: String(data.minStock),
+      price: String(data.price),
+      cost: data.cost != null ? String(data.cost) : "",
+      description: data.description ?? "",
+      imageUrl: data.imageUrl ?? "",
+    });
+    setDiscounts(data.discounts.map((d) => ({ ...d, value: Number(d.value), label: d.label ?? "" })));
+    const rawTiers = (data as ProductDetail & { priceTiers?: PriceTier[] }).priceTiers ?? [];
+    setPriceTiers(rawTiers.map((t) => ({ ...t, price: Number(t.price) })));
+    if (data.imageUrl) setImagePreview(data.imageUrl);
   }
 
   async function fetchUsers() {
@@ -177,6 +193,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   }
 
   useEffect(() => { fetchProduct(); fetchUsers(); }, [id]);
+
+  function openEditModal() {
+    if (product) populateForm(product);
+    setEditOpen(true);
+  }
 
   // ── Save product ────────────────────────────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
@@ -199,11 +220,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           description: form.description || null,
           imageUrl: form.imageUrl || null,
           discounts: discounts.filter((d) => d.value > 0),
+          priceTiers: priceTiers.filter((t) => t.price > 0 && t.minQty > 0),
         }),
       });
       if (!res.ok) throw new Error("Error al guardar");
       setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 2000);
+      setTimeout(() => { setSaveOk(false); setEditOpen(false); }, 1200);
       fetchProduct();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
@@ -212,18 +234,37 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  // ── Image ───────────────────────────────────────────────────────────────────
-  function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Máximo 2MB"); return; }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const b64 = ev.target?.result as string;
+  // ── Image (crop & resize to 750×750) ──────────────────────────────────────
+  function processImageFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    const img = new Image();
+    img.onload = () => {
+      const size = 750;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      const b64 = canvas.toDataURL("image/jpeg", 0.85);
       setForm((f) => ({ ...f, imageUrl: b64 }));
       setImagePreview(b64);
+      URL.revokeObjectURL(img.src);
     };
-    reader.readAsDataURL(file);
+    img.src = URL.createObjectURL(file);
+  }
+
+  function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
   }
 
   // ── AI description ──────────────────────────────────────────────────────────
@@ -253,6 +294,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   function removeDiscount(idx: number) { setDiscounts((d) => d.filter((_, i) => i !== idx)); }
   function updateDiscount(idx: number, patch: Partial<Discount>) {
     setDiscounts((d) => d.map((item, i) => i === idx ? { ...item, ...patch } : item));
+  }
+
+  // ── Price Tiers ─────────────────────────────────────────────────────────────
+  function addPriceTier(tierType: "PACK" | "VOLUME") {
+    setPriceTiers((t) => [...t, { tierType, minQty: 1, price: 0 }]);
+  }
+  function removePriceTier(idx: number) { setPriceTiers((t) => t.filter((_, i) => i !== idx)); }
+  function updatePriceTier(idx: number, patch: Partial<PriceTier>) {
+    setPriceTiers((t) => t.map((item, i) => i === idx ? { ...item, ...patch } : item));
   }
 
   // ── Add units ───────────────────────────────────────────────────────────────
@@ -321,186 +371,197 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6 pb-10">
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => router.back()} className="gap-2">
-          <ArrowLeft size={16} /> Volver
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">{product?.name}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge className={`text-xs border-0 ${CATEGORY_COLORS[product?.category ?? ""] ?? ""}`}>
-              {CATEGORY_LABEL[product?.category ?? ""] ?? product?.category}
-            </Badge>
-            {product?.subcategory && (
-              <span className="text-sm text-muted-foreground">{product.subcategory}</span>
-            )}
-            {product && product.stock <= product.minStock && (
-              <Badge variant="destructive" className="text-xs">Stock Bajo</Badge>
-            )}
+      {/* ── Hero ── */}
+      <div className="relative rounded-xl overflow-hidden">
+        {/* Background image */}
+        {product?.imageUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 to-zinc-950" />
+        )}
+
+        {/* Hero content */}
+        <div className="relative z-10 px-6 py-10 md:px-10 md:py-14">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors mb-6"
+          >
+            <ArrowLeft size={16} /> Volver a productos
+          </button>
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white">{product?.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <Badge className={`text-xs border-0 ${CATEGORY_COLORS[product?.category ?? ""] ?? ""}`}>
+                  {CATEGORY_LABEL[product?.category ?? ""] ?? product?.category}
+                </Badge>
+                {product?.subcategory && (
+                  <Badge variant="secondary" className="text-xs">{product.subcategory}</Badge>
+                )}
+                {product?.brand && (
+                  <Badge variant="outline" className="text-xs text-white/80 border-white/30">{product.brand}</Badge>
+                )}
+                {product?.shade && (
+                  <Badge variant="outline" className="text-xs text-white/80 border-white/30">Tonalidad: {product.shade}%</Badge>
+                )}
+                {product && product.stock <= product.minStock && (
+                  <Badge variant="destructive" className="text-xs">Stock Bajo</Badge>
+                )}
+              </div>
+              {product?.description && (
+                <p className="text-white/70 text-sm mt-4 max-w-2xl line-clamp-2">{product.description}</p>
+              )}
+            </div>
+            <Button onClick={openEditModal} className="gap-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white border border-white/20 shrink-0">
+              <Pencil size={15} />
+              Editar producto
+            </Button>
           </div>
         </div>
       </div>
 
       {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
-      {/* ── Edit Form ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Datos del Producto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSave} className="space-y-4">
-
-            <div className="space-y-1">
-              <Label>Nombre *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Categoría *</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AUTOMOTIVE">Automotriz</SelectItem>
-                    <SelectItem value="ARCHITECTURAL">Arquitectónica</SelectItem>
-                    <SelectItem value="PPF">PPF</SelectItem>
-                  </SelectContent>
-                </Select>
+      {/* ── Info cards ── */}
+      {product && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <DollarSign size={14} />
+                <span className="text-xs">Precio de venta</span>
               </div>
-              <div className="space-y-1">
-                <Label>Subcategoría</Label>
-                <Select value={form.subcategory || undefined} onValueChange={(v) => setForm({ ...form, subcategory: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                  <SelectContent>
-                    {(SUBCATEGORIES[form.category] ?? []).map((sub) => (
-                      <SelectItem key={sub.value} value={sub.value}>{sub.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <p className="text-2xl font-bold">{formatCurrency(product.price)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Layers size={14} />
+                <span className="text-xs">Stock</span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Tonalidad</Label>
-                {isPPF ? (
-                  <Input value={form.shade} onChange={(e) => setForm({ ...form, shade: e.target.value })} placeholder="Ej: Gloss, Matte..." />
-                ) : (
-                  <Select value={form.shade || undefined} onValueChange={(v) => setForm({ ...form, shade: v })}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {SHADE_OPTIONS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label>Marca</Label>
-                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Stock</Label>
-                <Input type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Stock mínimo</Label>
-                <Input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Precio de venta *</Label>
-                <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Costo</Label>
-                <Input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Opcional" />
-              </div>
-            </div>
-
-            {/* Imagen */}
-            <div className="space-y-1">
-              <Label>Foto</Label>
-              <div className="flex items-center gap-3">
-                <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageFile} className="flex-1" />
-                {imagePreview && (
-                  <div className="w-16 h-16 rounded-md border overflow-hidden shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Descripción + IA */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label>Descripción</Label>
-                <Button type="button" variant="outline" size="sm" onClick={improveDescription} disabled={improvingDesc} className="gap-1.5 h-7 text-xs">
-                  <Sparkles size={13} className="text-primary" />
-                  {improvingDesc ? "Procesando..." : "Mejorar con IA"}
-                </Button>
-              </div>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={3}
-                placeholder="Descripción técnica del producto..."
-              />
-            </div>
-
-            {/* Descuentos */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Descuentos</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addDiscount} className="gap-1.5 h-7 text-xs">
-                  <Plus size={12} /> Agregar
-                </Button>
-              </div>
-              {discounts.length === 0 && <p className="text-xs text-muted-foreground">Sin descuentos.</p>}
-              {discounts.map((discount, idx) => (
-                <div key={idx} className="flex items-center gap-2 rounded-md border px-3 py-2">
-                  <Input
-                    placeholder="Etiqueta"
-                    value={discount.label}
-                    onChange={(e) => updateDiscount(idx, { label: e.target.value })}
-                    className="h-7 text-xs border-0 px-0 focus-visible:ring-0 bg-transparent flex-1"
-                  />
-                  <Select value={discount.type} onValueChange={(v) => updateDiscount(idx, { type: v as "FIXED" | "PERCENTAGE" })}>
-                    <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PERCENTAGE">%</SelectItem>
-                      <SelectItem value="FIXED">$ Fijo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number" step="0.01" min="0" value={discount.value}
-                    onChange={(e) => updateDiscount(idx, { value: parseFloat(e.target.value) || 0 })}
-                    className="h-7 w-20 text-xs"
-                  />
-                  <button type="button" onClick={() => removeDiscount(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 size={14} />
-                  </button>
+              <p className={`text-2xl font-bold ${product.stock <= product.minStock ? "text-red-500" : ""}`}>
+                {product.stock}
+                <span className="text-sm font-normal text-muted-foreground ml-1">/ {product.minStock} m\u00edn.</span>
+              </p>
+            </CardContent>
+          </Card>
+          {product.cost != null && (
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Tag size={14} />
+                  <span className="text-xs">Costo</span>
                 </div>
-              ))}
-            </div>
+                <p className="text-2xl font-bold">{formatCurrency(product.cost)}</p>
+              </CardContent>
+            </Card>
+          )}
+          {product.cost != null && (
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <BarChart3 size={14} />
+                  <span className="text-xs">Margen</span>
+                </div>
+                <p className="text-2xl font-bold text-green-600">
+                  {(((product.price - product.cost) / product.price) * 100).toFixed(1)}%
+                  <span className="text-sm font-normal text-muted-foreground ml-1">
+                    ({formatCurrency(product.price - product.cost)})
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="submit" disabled={saving} className="gap-2">
-                {saveOk ? <><Check size={16} /> Guardado</> : saving ? "Guardando..." : "Guardar cambios"}
-              </Button>
+      {/* ── Discounts display ── */}
+      {product && product.discounts.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Tag size={18} className="text-amber-500" /> Descuentos</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {product.discounts.map((d, i) => {
+                const discountedPrice = d.type === "PERCENTAGE"
+                  ? product.price * (1 - d.value / 100)
+                  : product.price - d.value;
+                return (
+                  <div key={i} className="rounded-lg border p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{d.label || `Descuento ${i + 1}`}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        -{d.type === "PERCENTAGE" ? `${d.value}%` : formatCurrency(d.value)}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-amber-600">{formatCurrency(discountedPrice)}</p>
+                  </div>
+                );
+              })}
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Price Tiers display ── */}
+      {product && (product as ProductDetail & { priceTiers?: PriceTier[] }).priceTiers && (product as ProductDetail & { priceTiers?: PriceTier[] }).priceTiers!.length > 0 && (() => {
+        const tiers = (product as ProductDetail & { priceTiers?: PriceTier[] }).priceTiers!;
+        const packTiers = tiers.filter((t) => t.tierType === "PACK");
+        const volumeTiers = tiers.filter((t) => t.tierType === "VOLUME");
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {packTiers.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Package size={18} className="text-blue-500" /> Precios por Pack</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {packTiers.map((t, i) => (
+                      <div key={i} className="rounded-lg border p-3 flex items-center justify-between">
+                        <span className="text-sm font-medium">{t.minQty} {t.minQty === 1 ? "rollo" : "rollos"}</span>
+                        <span className="text-lg font-bold text-blue-600">{formatCurrency(Number(t.price))}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {volumeTiers.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Layers size={18} className="text-green-500" /> Precios por Volumen</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {volumeTiers.map((t, i) => (
+                      <div key={i} className="rounded-lg border p-3 flex items-center justify-between">
+                        <span className="text-sm font-medium">{t.minQty}+ unidades</span>
+                        <span className="text-lg font-bold text-green-600">{formatCurrency(Number(t.price))}/u</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Description ── */}
+      {product?.description && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Info size={18} className="text-primary" /> Descripci\u00f3n</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{product.description}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Units section ── */}
       <Card>
@@ -509,10 +570,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <QrCode size={18} className="text-primary" />
-                Unidades con código de trazabilidad
+                Unidades con c\u00f3digo de trazabilidad
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Cada unidad tiene un código único: <code className="bg-muted px-1 rounded text-xs">[SUBCATEGORÍA]-[TONALIDAD]-[SECUENCIA]</code>
+                Cada unidad tiene un c\u00f3digo \u00fanico: <code className="bg-muted px-1 rounded text-xs">[SUBCATEGOR\u00cdA]-[TONALIDAD]-[SECUENCIA]</code>
               </p>
             </div>
             <Button onClick={() => { setAddUnitsOpen(true); setNewCodes([]); }} className="gap-2">
@@ -533,11 +594,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <Label>Cantidad de unidades *</Label>
                   <Input type="number" min="1" max="500" value={unitsQty}
                     onChange={(e) => setUnitsQty(e.target.value)} required />
-                  <p className="text-xs text-muted-foreground">Se generará un código único por cada unidad.</p>
+                  <p className="text-xs text-muted-foreground">Se generar\u00e1 un c\u00f3digo \u00fanico por cada unidad.</p>
                 </div>
                 {newCodes.length > 0 && (
                   <div className="rounded-md border p-3 space-y-1 max-h-40 overflow-y-auto">
-                    <p className="text-xs font-medium text-green-700 mb-2">✓ {newCodes.length} unidades creadas:</p>
+                    <p className="text-xs font-medium text-green-700 mb-2">{"\u2713"} {newCodes.length} unidades creadas:</p>
                     {newCodes.map((code) => (
                       <code key={code} className="block text-xs bg-muted px-2 py-0.5 rounded font-mono">{code}</code>
                     ))}
@@ -564,7 +625,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </DialogHeader>
               <form onSubmit={handleAssign} className="space-y-3">
                 <div className="rounded-md bg-muted/40 border px-3 py-2">
-                  <p className="text-xs text-muted-foreground">Código</p>
+                  <p className="text-xs text-muted-foreground">C\u00f3digo</p>
                   <code className="text-sm font-mono font-bold">{assignUnit?.code}</code>
                 </div>
                 <div className="space-y-1">
@@ -578,7 +639,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Notas de envío</Label>
+                  <Label>Notas de env\u00edo</Label>
                   <Textarea value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} rows={2} placeholder="Opcional..." />
                 </div>
                 <DialogFooter>
@@ -596,19 +657,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           {!product?.units?.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <Package size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Sin unidades generadas aún. Hacé clic en "Agregar unidades" para comenzar.</p>
+              <p className="text-sm">Sin unidades generadas a\u00fan. Hac\u00e9 clic en &quot;Agregar unidades&quot; para comenzar.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead>C\u00f3digo</TableHead>
                     <TableHead>Asignado a</TableHead>
-                    <TableHead>Fecha asignación</TableHead>
+                    <TableHead>Fecha asignaci\u00f3n</TableHead>
                     <TableHead>Notas</TableHead>
-                    <TableHead>Fecha creación</TableHead>
-                    <TableHead>Acción</TableHead>
+                    <TableHead>Fecha creaci\u00f3n</TableHead>
+                    <TableHead>Acci\u00f3n</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -671,50 +732,213 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         </CardContent>
       </Card>
 
-      {/* ── Pricing summary ── */}
-      {product && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Resumen de precios</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Precio de venta</p>
-                <p className="text-xl font-bold mt-1">{formatCurrency(product.price)}</p>
+      {/* ── Edit Product Modal ── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil size={16} className="text-primary" />
+              Editar producto
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
+
+            <div className="space-y-1">
+              <Label>Nombre *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Categor\u00eda *</Label>
+                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AUTOMOTIVE">Automotriz</SelectItem>
+                    <SelectItem value="ARCHITECTURAL">Arquitect\u00f3nica</SelectItem>
+                    <SelectItem value="PPF">PPF</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              {product.cost != null && (
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Costo</p>
-                  <p className="text-xl font-bold mt-1">{formatCurrency(product.cost)}</p>
-                </div>
-              )}
-              {product.cost != null && (
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Margen</p>
-                  <p className="text-xl font-bold mt-1 text-green-600">
-                    {formatCurrency(product.price - product.cost)}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      ({((( product.price - product.cost) / product.price) * 100).toFixed(1)}%)
-                    </span>
-                  </p>
-                </div>
-              )}
-              {product.discounts.map((d, i) => (
-                <div key={i} className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">{d.label || `Descuento ${i + 1}`}</p>
-                  <p className="text-xl font-bold mt-1 text-amber-600">
-                    {d.type === "PERCENTAGE"
-                      ? formatCurrency(product.price * (1 - d.value / 100))
-                      : formatCurrency(product.price - d.value)}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      (-{d.type === "PERCENTAGE" ? `${d.value}%` : formatCurrency(d.value)})
-                    </span>
-                  </p>
+              <div className="space-y-1">
+                <Label>Subcategor\u00eda</Label>
+                <Select value={form.subcategory || undefined} onValueChange={(v) => setForm({ ...form, subcategory: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {(SUBCATEGORIES[form.category] ?? []).map((sub) => (
+                      <SelectItem key={sub.value} value={sub.value}>{sub.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Tonalidad</Label>
+                {isPPF ? (
+                  <Input value={form.shade} onChange={(e) => setForm({ ...form, shade: e.target.value })} placeholder="Ej: Gloss, Matte..." />
+                ) : (
+                  <Select value={form.shade || undefined} onValueChange={(v) => setForm({ ...form, shade: v })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectContent>
+                      {SHADE_OPTIONS.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>Marca</Label>
+                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Stock</Label>
+                <Input type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Stock m\u00ednimo</Label>
+                <Input type="number" min="0" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Precio de venta *</Label>
+                <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              </div>
+              <div className="space-y-1">
+                <Label>Costo</Label>
+                <Input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Opcional" />
+              </div>
+            </div>
+
+            {/* Imagen */}
+            <div className="space-y-1">
+              <Label>Foto del producto</Label>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                className="relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer py-8"
+              >
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
+                {imagePreview ? (
+                  <div className="w-24 h-24 rounded-lg border overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <ImagePlus size={36} className="text-muted-foreground/50" />
+                )}
+                <p className="text-sm text-muted-foreground">Elige o arrastra la foto del producto aqu\u00ed</p>
+                <p className="text-xs text-muted-foreground/60">Ajusta el tama\u00f1o autom\u00e1ticamente a 750x750</p>
+              </div>
+            </div>
+
+            {/* Descripci\u00f3n + IA */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label>Descripci\u00f3n</Label>
+                <Button type="button" variant="outline" size="sm" onClick={improveDescription} disabled={improvingDesc} className="gap-1.5 h-7 text-xs">
+                  <Sparkles size={13} className="text-primary" />
+                  {improvingDesc ? "Procesando..." : "Mejorar con IA"}
+                </Button>
+              </div>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={3}
+                placeholder="Descripci\u00f3n t\u00e9cnica del producto..."
+              />
+            </div>
+
+            {/* Descuentos */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Descuentos</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addDiscount} className="gap-1.5 h-7 text-xs">
+                  <Plus size={12} /> Agregar
+                </Button>
+              </div>
+              {discounts.length === 0 && <p className="text-xs text-muted-foreground">Sin descuentos.</p>}
+              {discounts.map((discount, idx) => (
+                <div key={idx} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <Input
+                    placeholder="Etiqueta"
+                    value={discount.label}
+                    onChange={(e) => updateDiscount(idx, { label: e.target.value })}
+                    className="h-7 text-xs border-0 px-0 focus-visible:ring-0 bg-transparent flex-1"
+                  />
+                  <Select value={discount.type} onValueChange={(v) => updateDiscount(idx, { type: v as "FIXED" | "PERCENTAGE" })}>
+                    <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PERCENTAGE">%</SelectItem>
+                      <SelectItem value="FIXED">$ Fijo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number" step="0.01" min="0" value={discount.value}
+                    onChange={(e) => updateDiscount(idx, { value: parseFloat(e.target.value) || 0 })}
+                    className="h-7 w-20 text-xs"
+                  />
+                  <button type="button" onClick={() => removeDiscount(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {/* Precios por Pack / Volumen */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Precios por Pack / Volumen</Label>
+                <div className="flex gap-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPriceTier("PACK")} className="gap-1.5 h-7 text-xs">
+                    <Plus size={12} /> Pack
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPriceTier("VOLUME")} className="gap-1.5 h-7 text-xs">
+                    <Plus size={12} /> Volumen
+                  </Button>
+                </div>
+              </div>
+              {priceTiers.length === 0 && <p className="text-xs text-muted-foreground">Sin precios especiales.</p>}
+              {priceTiers.map((tier, idx) => (
+                <div key={idx} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <Badge variant="outline" className="text-xs shrink-0">{tier.tierType === "PACK" ? "Pack" : "Volumen"}</Badge>
+                  <Input
+                    type="number" min="1" value={tier.minQty}
+                    onChange={(e) => updatePriceTier(idx, { minQty: parseInt(e.target.value) || 1 })}
+                    className="h-7 w-20 text-xs"
+                    placeholder="Cant."
+                  />
+                  <span className="text-xs text-muted-foreground shrink-0">{tier.tierType === "PACK" ? "uds → $" : "uds+ → $/u"}</span>
+                  <Input
+                    type="number" step="0.01" min="0" value={tier.price}
+                    onChange={(e) => updatePriceTier(idx, { price: parseFloat(e.target.value) || 0 })}
+                    className="h-7 w-24 text-xs"
+                    placeholder="Precio"
+                  />
+                  <button type="button" onClick={() => removePriceTier(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button variant="outline" type="button" onClick={() => setEditOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={saving} className="gap-2">
+                {saveOk ? <><Check size={16} /> Guardado</> : saving ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

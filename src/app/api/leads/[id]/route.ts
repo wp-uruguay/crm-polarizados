@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export async function GET(
   request: Request,
@@ -54,8 +56,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
     const { id } = await params;
     const body = await request.json();
+
+    // Check if assignedToId is changing
+    const previousLead = body.assignedToId
+      ? await prisma.contact.findUnique({ where: { id }, select: { assignedToId: true, firstName: true, lastName: true, company: true } })
+      : null;
 
     const lead = await prisma.contact.update({
       where: { id },
@@ -66,6 +74,26 @@ export async function PUT(
         },
       },
     });
+
+    // Notify if assigned to a different user
+    if (
+      body.assignedToId &&
+      previousLead &&
+      previousLead.assignedToId !== body.assignedToId &&
+      lead.assignedTo &&
+      session?.user?.id !== body.assignedToId
+    ) {
+      const contactName = lead.company || `${lead.firstName} ${lead.lastName}`.trim();
+      await sendNotification({
+        userId: lead.assignedTo.id,
+        userEmail: lead.assignedTo.email!,
+        userName: lead.assignedTo.name,
+        type: "LEAD_ASSIGNED",
+        title: "Lead asignado",
+        message: `Se te asignó el lead <strong>${contactName}</strong>.`,
+        link: `/leads/${id}`,
+      });
+    }
 
     return NextResponse.json(lead);
   } catch (error) {

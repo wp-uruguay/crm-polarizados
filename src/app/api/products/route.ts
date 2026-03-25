@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { discounts, ...productData } = body;
+    const { discounts, priceTiers, ...productData } = body;
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({ data: productData });
@@ -62,9 +62,20 @@ export async function POST(request: Request) {
         });
       }
 
+      if (priceTiers && priceTiers.length > 0) {
+        await tx.priceTier.createMany({
+          data: priceTiers.map((t: { tierType: string; minQty: number; price: number }) => ({
+            productId: created.id,
+            tierType: t.tierType,
+            minQty: t.minQty,
+            price: t.price,
+          })),
+        });
+      }
+
       return tx.product.findUnique({
         where: { id: created.id },
-        include: { discounts: true, _count: { select: { units: true } } },
+        include: { discounts: true, priceTiers: { orderBy: { minQty: "asc" } }, _count: { select: { units: true } } },
       });
     });
 

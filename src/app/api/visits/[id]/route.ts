@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
   const { id } = await params;
   try {
     const body = await request.json();
@@ -15,9 +18,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
       include: {
         contact: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Notify creator when visit is completed by someone else
+    if (body.completed === true && visit.createdBy && session?.user?.id !== visit.createdBy.id) {
+      const contactName = `${visit.contact.firstName} ${visit.contact.lastName}`.trim();
+      await sendNotification({
+        userId: visit.createdBy.id,
+        userEmail: visit.createdBy.email!,
+        userName: visit.createdBy.name,
+        type: "VISIT_COMPLETED",
+        title: "Visita completada",
+        message: `La visita con <strong>${contactName}</strong> fue completada por <strong>${visit.assignedTo.name}</strong>.`,
+        link: "/calendar/visits",
+      });
+    }
+
     return NextResponse.json(visit);
   } catch (error) {
     console.error(error);

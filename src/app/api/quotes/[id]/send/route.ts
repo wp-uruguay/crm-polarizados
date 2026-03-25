@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { Resend } from "resend"; // quote send endpoint
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 export async function POST(
   request: Request,
@@ -31,9 +41,8 @@ export async function POST(
     return NextResponse.json({ error: "El contacto no tiene email registrado" }, { status: 400 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "RESEND_API_KEY no configurada" }, { status: 500 });
+  if (!process.env.SMTP_USER) {
+    return NextResponse.json({ error: "SMTP no configurado" }, { status: 500 });
   }
 
   try {
@@ -68,29 +77,25 @@ export async function POST(
   </div>
 </div>`;
 
-    const resend = new Resend(apiKey);
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    const sendPayload: Parameters<typeof resend.emails.send>[0] = {
+    const mailOptions: nodemailer.SendMailOptions = {
       from: `Dr Polarizados <${fromEmail}>`,
-      to: [email],
+      to: email,
       subject: `Presupuesto #${quote.number} - Dr Polarizados`,
       html,
     };
 
     if (pdfBase64) {
-      sendPayload.attachments = [
+      mailOptions.attachments = [
         {
           filename: `presupuesto-${quote.number}.pdf`,
-          content: pdfBase64,
+          content: Buffer.from(pdfBase64, "base64"),
         },
       ];
     }
 
-    const { error: sendError } = await resend.emails.send(sendPayload);
-    if (sendError) {
-      return NextResponse.json({ error: sendError.message }, { status: 500 });
-    }
+    await transporter.sendMail(mailOptions);
 
     // Update quote: mark as SENT and set sentAt
     await prisma.quote.update({

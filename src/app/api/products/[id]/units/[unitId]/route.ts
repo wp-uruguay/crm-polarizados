@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 // Assign a unit to a user (or unassign with userId: null)
 export async function PATCH(
@@ -7,7 +9,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; unitId: string }> }
 ) {
   try {
-    const { unitId } = await params;
+    const session = await auth();
+    const { id: productId, unitId } = await params;
     const { userId, notes } = await request.json();
 
     const unit = await prisma.productUnit.update({
@@ -19,6 +22,23 @@ export async function PATCH(
       },
       include: { assignedTo: { select: { id: true, name: true, email: true } } },
     });
+
+    // Notify the user when a unit is assigned to them
+    if (userId && unit.assignedTo && session?.user?.id !== userId) {
+      const product = await prisma.product.findUnique({
+        where: { id: productId },
+        select: { name: true },
+      });
+      await sendNotification({
+        userId: unit.assignedTo.id,
+        userEmail: unit.assignedTo.email!,
+        userName: unit.assignedTo.name,
+        type: "UNIT_ASSIGNED",
+        title: "Unidad asignada",
+        message: `Se te asignó la unidad <strong>${unit.code}</strong> del producto <strong>${product?.name ?? ""}</strong>.`,
+        link: `/products/${productId}`,
+      });
+    }
 
     return NextResponse.json(unit);
   } catch {

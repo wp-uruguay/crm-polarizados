@@ -1,11 +1,21 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 export interface NotifyPayload {
   userId: string;
   userEmail: string;
   userName: string;
-  type: "VISIT_ASSIGNED" | "CALL_ASSIGNED";
+  type: string;
   title: string;
   message: string;
   link?: string;
@@ -20,13 +30,11 @@ export async function sendNotification(payload: NotifyPayload) {
   });
 
   // 2. Send email (fire-and-forget, don't break if it fails)
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
+  if (!process.env.SMTP_USER) return;
 
   try {
-    const resend = new Resend(apiKey);
-    await resend.emails.send({
-      from: "DR Polarizados <notificaciones@colonia.cloud>",
+    await transporter.sendMail({
+      from: `DR Polarizados <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to: userEmail,
       subject: title,
       html: `

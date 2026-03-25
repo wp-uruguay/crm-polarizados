@@ -218,6 +218,7 @@ model Product {
   quoteItems    QuoteItem[]
   saleItems     SaleItem[]
   discounts     ProductDiscount[]
+  priceTiers    PriceTier[]
   units         ProductUnit[]
 
   @@map("products")
@@ -233,6 +234,18 @@ model ProductDiscount {
   createdAt DateTime @default(now())
 
   @@map("product_discounts")
+}
+
+model PriceTier {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tierType  String   // PACK | VOLUME
+  minQty    Int
+  price     Decimal  @db.Decimal(10, 2) // PACK: total pack price, VOLUME: per-unit price
+  createdAt DateTime @default(now())
+
+  @@map("price_tiers")
 }
 
 model ProductUnit {

@@ -7,10 +7,17 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const contactId = searchParams.get("contactId");
   const upcoming = searchParams.get("upcoming") === "true";
+  const month = searchParams.get("month"); // 1-12
+  const year = searchParams.get("year");
 
   const where: Record<string, unknown> = {};
   if (contactId) where.contactId = contactId;
   if (upcoming) where.scheduledDate = { gte: new Date() };
+  if (month && year) {
+    const start = new Date(Number(year), Number(month) - 1, 1);
+    const end = new Date(Number(year), Number(month), 1);
+    where.scheduledDate = { gte: start, lt: end };
+  }
 
   try {
     const visits = await prisma.visit.findMany({

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
   const { id } = await params;
   try {
     const body = await request.json();
@@ -15,9 +18,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
       include: {
         contact: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Notify creator when call is completed by someone else
+    if (body.completed === true && call.createdBy && session?.user?.id !== call.createdBy.id) {
+      const contactName = `${call.contact.firstName} ${call.contact.lastName}`.trim();
+      await sendNotification({
+        userId: call.createdBy.id,
+        userEmail: call.createdBy.email!,
+        userName: call.createdBy.name,
+        type: "CALL_COMPLETED",
+        title: "Llamada completada",
+        message: `La llamada con <strong>${contactName}</strong> fue completada por <strong>${call.assignedTo.name}</strong>.`,
+        link: "/calendar/calls",
+      });
+    }
+
     return NextResponse.json(call);
   } catch (error) {
     console.error(error);

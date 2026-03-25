@@ -19,7 +19,11 @@ export async function POST(request: Request) {
     }
 
     if (action === "delete") {
-      await prisma.product.deleteMany({ where: { id: { in: ids } } });
+      await prisma.$transaction([
+        prisma.quoteItem.deleteMany({ where: { productId: { in: ids } } }),
+        prisma.saleItem.deleteMany({ where: { productId: { in: ids } } }),
+        prisma.product.deleteMany({ where: { id: { in: ids } } }),
+      ]);
       return NextResponse.json({ message: `${ids.length} producto(s) eliminados` });
     }
 

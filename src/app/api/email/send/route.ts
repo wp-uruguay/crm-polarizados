@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 export async function POST(request: Request) {
   try {
@@ -9,27 +19,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      return NextResponse.json({ error: "RESEND_API_KEY no configurada" }, { status: 500 });
+    if (!process.env.SMTP_USER) {
+      return NextResponse.json({ error: "SMTP no configurado" }, { status: 500 });
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const displayName = fromName || "DR Polarizados";
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    const displayName = fromName || process.env.RESEND_FROM_NAME || "DR Polarizados";
-
-    const { data, error } = await resend.emails.send({
+    const info = await transporter.sendMail({
       from: `${displayName} <${fromEmail}>`,
-      to: [to],
+      to,
       subject,
       html: body.replace(/\n/g, "<br/>"),
     });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ id: data?.id });
+    return NextResponse.json({ id: info.messageId });
   } catch (err) {
     console.error("Error sending email:", err);
     return NextResponse.json({ error: "Error al enviar email" }, { status: 500 });
