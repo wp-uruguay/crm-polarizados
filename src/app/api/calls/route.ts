@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         userName: call.assignedTo.name,
         type: "CALL_ASSIGNED",
         title: "Nueva llamada asignada",
-        message: `Se te asignó una llamada con <strong>${contactName}</strong> para el ${date}${duration}.${notes ? `<br>Notas: ${notes}` : ""}`,
+        message: `Se te asignó una llamada con <strong>${escapeHtml(contactName)}</strong> para el ${escapeHtml(date)}${escapeHtml(duration)}.${notes ? `<br>Notas: ${escapeHtml(notes)}` : ""}`,
         link: "/calendar/calls",
       });
     }

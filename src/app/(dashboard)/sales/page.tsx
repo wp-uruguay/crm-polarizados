@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
+import { formatDate, calcTax } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
 
 interface Sale {
   id: string;
@@ -46,10 +46,10 @@ export default function SalesPage() {
       const [salesRes, prodRes, leadsRes, clientsRes] = await Promise.all([
         fetch("/api/sales"), fetch("/api/products"), fetch("/api/leads"), fetch("/api/clients"),
       ]);
-      setSales(await salesRes.json().then(d => Array.isArray(d) ? d : []));
-      setProducts(await prodRes.json().then(d => Array.isArray(d) ? d : []));
-      const leads = await leadsRes.json().then(d => Array.isArray(d) ? d : []);
-      const clients = await clientsRes.json().then(d => Array.isArray(d) ? d : []);
+      if (salesRes.ok) setSales(await salesRes.json().then((d: Sale[]) => Array.isArray(d) ? d : []));
+      if (prodRes.ok) setProducts(await prodRes.json().then((d: Product[]) => Array.isArray(d) ? d : []));
+      const leads = leadsRes.ok ? await leadsRes.json().then((d: Contact[]) => Array.isArray(d) ? d : []) : [];
+      const clients = clientsRes.ok ? await clientsRes.json().then((d: Contact[]) => Array.isArray(d) ? d : []) : [];
       setContacts([...leads, ...clients]);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -67,12 +67,25 @@ export default function SalesPage() {
 
   async function handleCreate() {
     const subtotal = form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+    const tax = form.requiresFactura ? calcTax(subtotal) : 0;
+    const total = subtotal - form.discount + tax;
     try {
-      await fetch("/api/sales", {
+      const res = await fetch("/api/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, subtotal, total: subtotal - form.discount, userId: "system" }),
+        body: JSON.stringify({
+          contactId: form.contactId,
+          type: form.type,
+          items: form.items,
+          discount: form.discount,
+          notes: form.notes,
+          requiresFactura: form.requiresFactura,
+        }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Error al crear venta");
+      }
       setShowForm(false);
       setForm({ contactId: "", type: "REGULAR", items: [{ productId: "", quantity: 1, unitPrice: 0 }], discount: 0, notes: "", requiresFactura: false });
       fetchAll();
@@ -121,7 +134,7 @@ export default function SalesPage() {
                       {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} (Stock: {p.stock})</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} min={1} />
+                  <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", Math.max(1, parseInt(e.target.value) || 1))} min={1} />
                   <Input type="number" className="w-28" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)} />
                   <span className="flex items-center w-28 text-sm">{formatCurrency(item.quantity * item.unitPrice)}</span>
                   {form.items.length > 1 && <Button variant="ghost" size="icon" onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) })}><Trash2 className="h-4 w-4" /></Button>}
@@ -131,7 +144,19 @@ export default function SalesPage() {
             </div>
             <div className="flex gap-4 items-end">
               <div><Label>Descuento</Label><Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} className="w-32" /></div>
-              <p className="text-lg font-bold">Total: {formatCurrency(form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) - form.discount)}</p>
+              {(() => {
+                const sub = form.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+                const tax = form.requiresFactura ? calcTax(sub) : 0;
+                const total = sub - form.discount + tax;
+                return (
+                  <div className="space-y-1">
+                    {form.requiresFactura && (
+                      <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(sub - form.discount)} | IVA (21%): {formatCurrency(tax)}</p>
+                    )}
+                    <p className="text-lg font-bold">Total: {formatCurrency(total)}</p>
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -143,6 +168,12 @@ export default function SalesPage() {
               />
               <Label htmlFor="requiresFacturaSale">Requiere facturación</Label>
             </div>
+            {!form.requiresFactura && (
+              <div className="flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-600">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Los precios expresados en la lista no incluyen el IVA (21%).
+              </div>
+            )}
             <div className="flex gap-2">
               <Button onClick={handleCreate}>Crear Venta</Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>

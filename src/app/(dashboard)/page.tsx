@@ -725,7 +725,7 @@ export default function DashboardPage() {
                     <span className="flex-1 text-sm truncate">{task.name}</span>
                     {task.due_date && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {new Date(parseInt(task.due_date)).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
+                        {new Date(task.due_date).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}
                       </span>
                     )}
                     <a

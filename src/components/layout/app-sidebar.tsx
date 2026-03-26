@@ -21,6 +21,9 @@ import {
   Phone,
   Settings,
   AlertTriangle,
+  Truck,
+  ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +46,9 @@ const navItems = [
   { label: "Ventas", href: "/sales", icon: ShoppingCart },
   { label: "Remitos", href: "/remitos", icon: FileCheck },
   { label: "Pagos", href: "/payments", icon: CreditCard },
+  { label: "Proveedores", href: "/suppliers", icon: Truck },
+  { label: "Órdenes de Compra", href: "/purchase-orders", icon: ClipboardList },
+  { label: "Movimientos Stock", href: "/stock-movements", icon: BarChart3 },
   { label: "Competencia", href: "/competitors", icon: Target },
   { label: "AI Insights", href: "/ai-insights", icon: Brain },
   { label: "RRSS Creator", href: "/social-creator", icon: Sparkles },

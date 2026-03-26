@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+import { transporter, FROM } from "@/lib/mailer";
 
 function generatePassword(length = 10): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -49,10 +39,8 @@ export async function POST(request: Request) {
       data: { password: hashed },
     });
 
-    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-
     await transporter.sendMail({
-      from: `DR Polarizados <${fromEmail}>`,
+      from: FROM(),
       to: user.email,
       subject: "Tu nueva contraseña - DR Polarizados",
       html: `

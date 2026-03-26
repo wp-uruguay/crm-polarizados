@@ -15,6 +15,10 @@ export function formatCurrency(amount: number | string): string {
   }).format(num);
 }
 
+export function calcTax(subtotal: number): number {
+  return Math.round(subtotal * 0.21 * 100) / 100;
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("es-UY", {

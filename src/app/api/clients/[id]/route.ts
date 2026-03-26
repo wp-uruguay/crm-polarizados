@@ -62,6 +62,17 @@ export async function GET(
       saleNumber: p.sale ? `#${p.sale.number}` : "—",
     }));
 
+    // Parse suppliers as JSON array or fallback
+    let suppliers: string[] = [];
+    if (contact.currentSupplier) {
+      try {
+        const parsed = JSON.parse(contact.currentSupplier);
+        suppliers = Array.isArray(parsed) ? parsed : [contact.currentSupplier];
+      } catch {
+        suppliers = contact.currentSupplier ? [contact.currentSupplier] : [];
+      }
+    }
+
     return NextResponse.json({
       id: contact.id,
       name: `${contact.firstName} ${contact.lastName}`,
@@ -70,12 +81,41 @@ export async function GET(
       phone: contact.phone,
       address: contact.address,
       rut: null,
+      notes: contact.notes || "",
+      suppliers,
+      priceRange: contact.currentSupplierPrices || "",
       purchases,
       payments,
-      balance: Math.max(0, balance),
+      balance,
     });
   } catch (error) {
     console.error("Error fetching client:", error);
     return NextResponse.json({ error: "Error al cargar cliente" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { notes, suppliers, priceRange } = body;
+
+    const data: Record<string, unknown> = {};
+    if (notes !== undefined) data.notes = notes;
+    if (suppliers !== undefined) data.currentSupplier = JSON.stringify(suppliers);
+    if (priceRange !== undefined) data.currentSupplierPrices = priceRange;
+
+    await prisma.contact.update({
+      where: { id },
+      data,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Error updating client:", error);
+    return NextResponse.json({ error: "Error al actualizar cliente" }, { status: 500 });
   }
 }

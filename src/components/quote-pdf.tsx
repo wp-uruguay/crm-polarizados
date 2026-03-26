@@ -16,6 +16,8 @@ export interface QuotePDFData {
   subtotal: number | string;
   discount: number | string;
   total: number | string;
+  tax?: number | string;
+  requiresFactura?: boolean;
   notes?: string | null;
   items: Array<{
     product: { name: string; category?: string };
@@ -122,11 +124,33 @@ export async function generateQuotePDF(quote: QuotePDFData): Promise<jsPDF> {
   // Totals
   const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   const tX = W - margin - 60;
+  let currentY = finalY;
+
+  if (quote.requiresFactura && Number(quote.tax || 0) > 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Subtotal:", tX, currentY);
+    doc.text(fmt(quote.subtotal), W - margin, currentY, { align: "right" });
+    currentY += 6;
+    doc.text("IVA (21%):", tX, currentY);
+    doc.text(fmt(quote.tax!), W - margin, currentY, { align: "right" });
+    currentY += 6;
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text("TOTAL:", tX, finalY);
-  doc.text(fmt(quote.total), W - margin, finalY, { align: "right" });
+  doc.text("TOTAL:", tX, currentY);
+  doc.text(fmt(quote.total), W - margin, currentY, { align: "right" });
+
+  // IVA disclaimer when no factura
+  if (!quote.requiresFactura) {
+    currentY += 10;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(150, 100, 0);
+    doc.text("Los precios expresados en la lista no incluyen el IVA (21%).", margin, currentY);
+    doc.setTextColor(0, 0, 0);
+  }
 
   // Footer separator
   const pageH = doc.internal.pageSize.getHeight();

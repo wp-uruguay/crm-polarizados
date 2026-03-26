@@ -139,8 +139,17 @@ export function downloadRemitoPDF(remito: RemitoData) {
     doc.text(`Notas: ${remito.notes}`, margin, totalY + 12);
   }
 
-  // Footer
+  // Signature section
   const pageH = doc.internal.pageSize.getHeight();
+  const sigY = pageH - 40;
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Firma:___________________________", margin, sigY);
+  doc.text("Aclaración:________________________", margin + 65, sigY);
+  doc.text("Documento:___________________________________", margin, sigY + 10);
+
+  // Footer
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, pageH - 18, W - margin, pageH - 18);
   doc.setFontSize(8);

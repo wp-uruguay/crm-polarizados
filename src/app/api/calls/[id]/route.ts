@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         userName: call.createdBy.name,
         type: "CALL_COMPLETED",
         title: "Llamada completada",
-        message: `La llamada con <strong>${contactName}</strong> fue completada por <strong>${call.assignedTo.name}</strong>.`,
+        message: `La llamada con <strong>${escapeHtml(contactName)}</strong> fue completada por <strong>${escapeHtml(call.assignedTo.name)}</strong>.`,
         link: "/calendar/calls",
       });
     }

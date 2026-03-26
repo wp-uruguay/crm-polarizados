@@ -25,7 +25,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email: credentials.email as string },
         });
 
-        if (!user) return null;
+        if (!user || user.deletedAt !== null) return null;
 
         const isValid = await bcrypt.compare(
           credentials.password as string,
@@ -46,8 +46,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role: string }).role;
-        token.id = user.id;
+        const u = user as { id: string; role?: string };
+        token.role = u.role ?? "OPERATOR";
+        token.id = u.id;
       }
       return token;
     },

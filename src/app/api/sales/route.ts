@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
+import { calcTax } from "@/lib/utils";
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
 
@@ -22,6 +27,7 @@ export async function GET(request: Request) {
 
     const sales = await prisma.sale.findMany({
       where,
+      take: 200,
       include: {
         contact: {
           select: { id: true, firstName: true, lastName: true, company: true },
@@ -62,12 +68,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       contactId,
-      userId,
       items,
       type = "REGULAR",
       discount = 0,
-      tax = 0,
       notes,
+      requiresFactura = false,
     } = body;
 
     const subtotal = items.reduce(
@@ -75,6 +80,7 @@ export async function POST(request: Request) {
         sum + item.quantity * item.unitPrice,
       0
     );
+    const tax = requiresFactura ? calcTax(subtotal) : 0;
     const total = subtotal - discount + tax;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -82,8 +88,9 @@ export async function POST(request: Request) {
       const sale = await tx.sale.create({
         data: {
           contactId,
-          userId,
+          userId: session.user.id,
           type,
+          requiresFactura,
           subtotal,
           discount,
           tax,
@@ -113,12 +120,29 @@ export async function POST(request: Request) {
         },
       });
 
-      // Auto-update stock
+      // Auto-update stock (validate before decrement) + create stock movements
       for (const item of items as Array<{ productId: string; quantity: number }>) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product || product.stock < item.quantity) {
+          throw new Error(`Stock insuficiente para ${product?.name ?? item.productId}`);
+        }
+        const stockBefore = product.stock;
+        const stockAfter = stockBefore - item.quantity;
         await tx.product.update({
           where: { id: item.productId },
+          data: { stock: stockAfter },
+        });
+        await tx.stockMovement.create({
           data: {
-            stock: { decrement: item.quantity },
+            productId: item.productId,
+            type: "SALIDA",
+            quantity: item.quantity,
+            stockBefore,
+            stockAfter,
+            referenceId: sale.id,
+            referenceType: "SALE",
+            reason: `Venta #${sale.number}`,
+            userId: session.user.id,
           },
         });
       }
@@ -154,7 +178,7 @@ export async function POST(request: Request) {
         userName: sale.contact.assignedTo.name,
         type: "SALE_CREATED",
         title: "Nueva venta registrada",
-        message: `Se registró una venta a <strong>${contactName}</strong> por $${sale.total}.`,
+        message: `Se registró una venta a <strong>${escapeHtml(contactName)}</strong> por $${sale.total}.`,
         link: "/sales",
       });
     }

@@ -58,6 +58,33 @@ enum ProductCategory {
   PPF
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  RECEIVED
+}
+
+enum StockMovementType {
+  ENTRADA
+  SALIDA
+  AJUSTE
+  DEVOLUCION
+}
+
+enum Currency {
+  ARS
+  USD
+}
+
+enum ImportCostType {
+  FLETE_INTERNACIONAL
+  DESPACHO_ADUANA
+  ARANCELES
+  FLETE_LOCAL
+  OTRO
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -67,6 +94,7 @@ model User {
   avatarUrl     String?   @db.LongText
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   assignedLeads   Contact[]      @relation("AssignedTo")
   scheduledVisits Visit[]        @relation("VisitAssignedTo")
@@ -77,6 +105,7 @@ model User {
   quotes          Quote[]
   assignedUnits   ProductUnit[]  @relation("UnitAssignedTo")
   notifications   Notification[]
+  stockMovements  StockMovement[]
 
   @@map("users")
 }
@@ -136,7 +165,7 @@ model Contact {
   contactDate     DateTime?
   vehicleFlowWeekly    Int?
   architecturalFlowMonthly Int?
-  currentSupplier      String?
+  currentSupplier      String?   @db.Text
   currentSupplierPrices String? @db.Text
   avatarUrl       String?       @db.LongText
 
@@ -215,11 +244,13 @@ model Product {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  quoteItems    QuoteItem[]
-  saleItems     SaleItem[]
-  discounts     ProductDiscount[]
-  priceTiers    PriceTier[]
-  units         ProductUnit[]
+  quoteItems         QuoteItem[]
+  saleItems          SaleItem[]
+  discounts          ProductDiscount[]
+  priceTiers         PriceTier[]
+  units              ProductUnit[]
+  stockMovements     StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@map("products")
 }
@@ -424,4 +455,92 @@ model Setting {
   updatedAt DateTime @updatedAt
 
   @@map("settings")
+}
+
+// ─── Fase 1: Proveedores, Órdenes de Compra, Costos de Importación ───────────
+
+model Supplier {
+  id            String    @id @default(cuid())
+  name          String
+  country       String?
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String?
+  currency      Currency  @default(USD)
+  leadTimeDays  Int?
+  notes         String?   @db.Text
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  number       Int                 @unique @default(autoincrement())
+  supplierId   String
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  status       PurchaseOrderStatus @default(DRAFT)
+  orderDate    DateTime            @default(now())
+  expectedDate DateTime?
+  receivedDate DateTime?
+  currency     Currency            @default(USD)
+  exchangeRate Decimal?            @db.Decimal(10, 4) // USD→ARS al momento de la orden
+  notes        String?             @db.Text
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  items       PurchaseOrderItem[]
+  importCosts ImportCost[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  quantity        Int
+  costFOB         Decimal       @db.Decimal(10, 2) // costo en moneda de origen (USD)
+  costLanded      Decimal?      @db.Decimal(10, 2) // costo real ARS después de prorrateo de gastos
+  notes           String?       @db.Text
+
+  @@map("purchase_order_items")
+}
+
+model ImportCost {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  type            ImportCostType
+  description     String?
+  amountARS       Decimal       @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
+
+  @@map("import_costs")
+}
+
+// ─── Fase 1: Movimientos de Stock ─────────────────────────────────────────────
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  productId     String
+  product       Product           @relation(fields: [productId], references: [id])
+  type          StockMovementType
+  quantity      Int               // positivo para entradas, negativo para salidas
+  stockBefore   Int
+  stockAfter    Int
+  referenceId   String?           // saleId | purchaseOrderId | etc.
+  referenceType String?           // SALE | PURCHASE_ORDER | ADJUSTMENT | RETURN
+  reason        String?           @db.Text
+  userId        String?
+  user          User?             @relation(fields: [userId], references: [id])
+  createdAt     DateTime          @default(now())
+
+  @@map("stock_movements")
 }

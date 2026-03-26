@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 export async function GET(
   request: Request,
@@ -90,7 +90,7 @@ export async function PUT(
         userName: lead.assignedTo.name,
         type: "LEAD_ASSIGNED",
         title: "Lead asignado",
-        message: `Se te asignó el lead <strong>${contactName}</strong>.`,
+        message: `Se te asignó el lead <strong>${escapeHtml(contactName)}</strong>.`,
         link: `/leads/${id}`,
       });
     }

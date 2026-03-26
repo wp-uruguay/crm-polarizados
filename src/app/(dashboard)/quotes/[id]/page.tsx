@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
-import { ArrowLeft, ShoppingCart, Download, Send, Mail } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Download, Send, Mail, AlertTriangle } from "lucide-react";
 import { downloadQuotePDF, getQuotePDFBase64 } from "@/components/quote-pdf";
 import Link from "next/link";
 
@@ -19,7 +19,9 @@ interface QuoteDetail {
   status: string;
   subtotal: string;
   discount: string;
+  tax: string;
   total: string;
+  requiresFactura: boolean;
   notes: string | null;
   sentAt: string | null;
   createdAt: string;
@@ -92,6 +94,8 @@ export default function QuoteDetailPage() {
       subtotal: quote.subtotal,
       discount: quote.discount,
       total: quote.total,
+      tax: quote.tax,
+      requiresFactura: quote.requiresFactura,
       notes: quote.notes,
       items: quote.items.map((i) => ({
         product: i.product,
@@ -117,6 +121,8 @@ export default function QuoteDetailPage() {
         subtotal: quote.subtotal,
         discount: quote.discount,
         total: quote.total,
+        tax: quote.tax,
+        requiresFactura: quote.requiresFactura,
         notes: quote.notes,
         items: quote.items.map((i) => ({
           product: i.product,
@@ -239,7 +245,19 @@ export default function QuoteDetailPage() {
             </TableBody>
           </Table>
           <div className="mt-4 text-right space-y-1">
+            {quote.requiresFactura && Number(quote.tax) > 0 && (
+              <>
+                <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(quote.subtotal)}</p>
+                <p className="text-sm text-muted-foreground">IVA (21%): {formatCurrency(quote.tax)}</p>
+              </>
+            )}
             <p className="text-xl font-bold">Total: {formatCurrency(quote.total)}</p>
+            {!quote.requiresFactura && (
+              <div className="flex items-center justify-end gap-2 mt-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-600">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Los precios expresados en la lista no incluyen el IVA (21%).
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
