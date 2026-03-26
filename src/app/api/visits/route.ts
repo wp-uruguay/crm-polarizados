@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
         userName: visit.assignedTo.name,
         type: "VISIT_ASSIGNED",
         title: "Nueva visita asignada",
-        message: `Se te asignó una visita con <strong>${contactName}</strong> para el ${date}.${notes ? `<br>Notas: ${notes}` : ""}`,
+        message: `Se te asignó una visita con <strong>${escapeHtml(contactName)}</strong> para el ${escapeHtml(date)}.${notes ? `<br>Notas: ${escapeHtml(notes)}` : ""}`,
         link: "/calendar/visits",
       });
     }

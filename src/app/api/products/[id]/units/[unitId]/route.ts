@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 // Assign a unit to a user (or unassign with userId: null)
 export async function PATCH(
@@ -35,7 +35,7 @@ export async function PATCH(
         userName: unit.assignedTo.name,
         type: "UNIT_ASSIGNED",
         title: "Unidad asignada",
-        message: `Se te asignó la unidad <strong>${unit.code}</strong> del producto <strong>${product?.name ?? ""}</strong>.`,
+        message: `Se te asignó la unidad <strong>${escapeHtml(unit.code)}</strong> del producto <strong>${escapeHtml(product?.name ?? "")}</strong>.`,
         link: `/products/${productId}`,
       });
     }

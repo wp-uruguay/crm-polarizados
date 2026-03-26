@@ -158,6 +158,7 @@ export async function POST(
         data: {
           contactId: quote.contactId,
           userId: quote.userId,
+          requiresFactura: quote.requiresFactura,
           subtotal: quote.subtotal,
           discount: quote.discount,
           tax: quote.tax,
@@ -185,8 +186,12 @@ export async function POST(
         },
       });
 
-      // d. Update stock (decrease product quantities)
+      // d. Update stock (decrease product quantities, validate first)
       for (const item of quote.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product || product.stock < item.quantity) {
+          throw new Error(`Stock insuficiente para ${product?.name ?? item.productId}`);
+        }
         await tx.product.update({
           where: { id: item.productId },
           data: {

@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { escapeHtml } from "@/lib/notifications";
+import { transporter } from "@/lib/mailer";
 import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
 
 export async function POST(
   request: Request,
@@ -36,6 +28,11 @@ export async function POST(
     return NextResponse.json({ error: "Presupuesto no encontrado" }, { status: 404 });
   }
 
+  // Rate limit: prevent resending within 60 seconds
+  if (quote.sentAt && Date.now() - new Date(quote.sentAt).getTime() < 60_000) {
+    return NextResponse.json({ error: "El presupuesto ya fue enviado recientemente. Espera un momento antes de reenviar." }, { status: 429 });
+  }
+
   const email = quote.contact.email;
   if (!email) {
     return NextResponse.json({ error: "El contacto no tiene email registrado" }, { status: 400 });
@@ -52,7 +49,8 @@ export async function POST(
     const contactName = `${quote.contact.firstName ?? ""} ${quote.contact.lastName ?? ""}`.trim();
     const displayName = contactName || quote.contact.company || "estimado cliente";
 
-    const whatsappLink = "https://api.whatsapp.com/send/?phone=5491168477185&text=Hola%2C+me+gustar%C3%ADa+recibir+asesoramiento+sobre+mi+presupuesto.&type=phone_number&app_absent=0";
+    const whatsappPhone = process.env.WHATSAPP_PHONE || "5491168477185";
+    const whatsappLink = `https://api.whatsapp.com/send/?phone=${whatsappPhone}&text=Hola%2C+me+gustar%C3%ADa+recibir+asesoramiento+sobre+mi+presupuesto.&type=phone_number&app_absent=0`;
     const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://crm.drpolarizados.com";
 
     const html = `
@@ -61,7 +59,7 @@ export async function POST(
     <img src="${baseUrl}/logomail.png" alt="Dr Polarizados" style="max-width:180px;height:auto;" />
   </div>
   <p style="color:#333;font-size:15px;line-height:1.6;">
-    Hola, <strong>${displayName}</strong>.<br/>
+    Hola, <strong>${escapeHtml(displayName)}</strong>.<br/>
     Te enviamos el presupuesto de nuestros artículos para que lo analices, en el PDF adjunto detallamos el costo, el descuento y los artículos solicitados/ofrecidos.
   </p>
   <hr style="margin:24px 0;border:none;border-top:1px solid #e5e5e5;" />
@@ -80,7 +78,7 @@ export async function POST(
     const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
 
     const mailOptions: nodemailer.SendMailOptions = {
-      from: `Dr Polarizados <${fromEmail}>`,
+      from: `Dr Polarizados <${fromEmail}>`,  // nombre específico para mails al cliente
       to: email,
       subject: `Presupuesto #${quote.number} - Dr Polarizados`,
       html,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, escapeHtml } from "@/lib/notifications";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         userName: visit.createdBy.name,
         type: "VISIT_COMPLETED",
         title: "Visita completada",
-        message: `La visita con <strong>${contactName}</strong> fue completada por <strong>${visit.assignedTo.name}</strong>.`,
+        message: `La visita con <strong>${escapeHtml(contactName)}</strong> fue completada por <strong>${escapeHtml(visit.assignedTo.name)}</strong>.`,
         link: "/calendar/visits",
       });
     }

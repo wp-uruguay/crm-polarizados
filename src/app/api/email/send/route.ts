@@ -1,15 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+import { transporter } from "@/lib/mailer";
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +17,7 @@ export async function POST(request: Request) {
     const displayName = fromName || "DR Polarizados";
 
     const info = await transporter.sendMail({
-      from: `${displayName} <${fromEmail}>`,
+      from: `${displayName} <${fromEmail}>`,  // preserva el fromName personalizado
       to,
       subject,
       html: body.replace(/\n/g, "<br/>"),

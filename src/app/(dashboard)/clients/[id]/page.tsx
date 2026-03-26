@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,7 +22,7 @@ import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
 import { CallDialog } from "@/components/call-dialog";
 import { UserSearchSelect } from "@/components/user-search-select";
-import { Pencil, FileText, CalendarDays, Phone, ShoppingCart, CreditCard, ChevronLeft, MapPin } from "lucide-react";
+import { Pencil, FileText, CalendarDays, Phone, ShoppingCart, CreditCard, ChevronLeft, MapPin, Plus, X, Save } from "lucide-react";
 
 interface ClientDetail {
   id: string;
@@ -31,6 +32,9 @@ interface ClientDetail {
   phone: string | null;
   address: string | null;
   rut: string | null;
+  notes: string;
+  suppliers: string[];
+  priceRange: string;
   purchases: Array<{
     id: string;
     saleNumber: string;
@@ -68,6 +72,14 @@ export default function ClientDetailPage() {
   const [visitSaving, setVisitSaving] = useState(false);
   const [visitForm, setVisitForm] = useState({ assignedToId: "", scheduledDate: "", notes: "" });
 
+  // Editable fields
+  const [editNotes, setEditNotes] = useState("");
+  const [editSuppliers, setEditSuppliers] = useState<string[]>([]);
+  const [editPriceRange, setEditPriceRange] = useState("");
+  const [newSupplier, setNewSupplier] = useState("");
+  const [savingExtra, setSavingExtra] = useState(false);
+  const [extraResult, setExtraResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
   useEffect(() => {
     async function fetchClient() {
       try {
@@ -75,6 +87,9 @@ export default function ClientDetailPage() {
         if (!res.ok) throw new Error("Error al cargar cliente");
         const json = await res.json();
         setClient(json);
+        setEditNotes(json.notes || "");
+        setEditSuppliers(json.suppliers || []);
+        setEditPriceRange(json.priceRange || "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {
@@ -82,8 +97,41 @@ export default function ClientDetailPage() {
       }
     }
     fetchClient();
-    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/users").then((r) => { if (!r.ok) throw new Error(); return r.json(); }).then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
   }, [clientId]);
+
+  function addSupplier() {
+    const trimmed = newSupplier.trim();
+    if (!trimmed) return;
+    setEditSuppliers([...editSuppliers, trimmed]);
+    setNewSupplier("");
+  }
+
+  function removeSupplier(idx: number) {
+    setEditSuppliers(editSuppliers.filter((_, i) => i !== idx));
+  }
+
+  async function handleSaveExtra() {
+    setSavingExtra(true);
+    setExtraResult(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: editNotes,
+          suppliers: editSuppliers,
+          priceRange: editPriceRange,
+        }),
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      setExtraResult({ ok: true, msg: "Guardado correctamente" });
+    } catch (err) {
+      setExtraResult({ ok: false, msg: err instanceof Error ? err.message : "Error" });
+    } finally {
+      setSavingExtra(false);
+    }
+  }
 
   async function handleCreateVisit(e: React.FormEvent) {
     e.preventDefault();
@@ -232,6 +280,70 @@ export default function ClientDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Notes, Suppliers, Price Range */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Notas, Proveedores y Rango de Precios</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label className="font-medium">Notas</Label>
+            <Textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="Notas sobre el cliente..."
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-medium">Proveedores</Label>
+            <div className="flex flex-wrap gap-2">
+              {editSuppliers.map((s, idx) => (
+                <Badge key={idx} variant="secondary" className="gap-1 text-sm py-1 px-2">
+                  {s}
+                  <button type="button" onClick={() => removeSupplier(idx)} className="ml-1 hover:text-red-500">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={newSupplier}
+                onChange={(e) => setNewSupplier(e.target.value)}
+                placeholder="Nombre del proveedor"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSupplier(); } }}
+                className="flex-1"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={addSupplier}>
+                <Plus className="h-4 w-4 mr-1" />Agregar
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-medium">Rango de Precios (proveedores actuales)</Label>
+            <Textarea
+              value={editPriceRange}
+              onChange={(e) => setEditPriceRange(e.target.value)}
+              placeholder="Ej: Proveedor A: $1000-$2000, Proveedor B: $800-$1500..."
+              rows={2}
+            />
+          </div>
+
+          {extraResult && (
+            <div className={`rounded-md p-3 text-sm ${extraResult.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+              {extraResult.msg}
+            </div>
+          )}
+
+          <Button onClick={handleSaveExtra} disabled={savingExtra} size="sm">
+            <Save className="h-4 w-4 mr-1" />{savingExtra ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Purchase History */}
       <Card>

@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
+import { formatDate, calcTax } from "@/lib/utils";
 import { useCurrency } from "@/contexts/currency-context";
-import { Plus, FileText, Trash2, Download, Send, Mail } from "lucide-react";
+import { Plus, FileText, Trash2, Download, Send, Mail, AlertTriangle } from "lucide-react";
 import { downloadQuotePDF, getQuotePDFBase64 } from "@/components/quote-pdf";
 import type { QuotePDFData } from "@/components/quote-pdf";
 import Link from "next/link";
@@ -23,6 +23,8 @@ interface Quote {
   total: string;
   subtotal: string;
   discount: string;
+  tax: string;
+  requiresFactura: boolean;
   status: string;
   sentAt: string | null;
   createdAt: string;
@@ -87,6 +89,7 @@ function QuotesPageInner() {
   async function fetchQuotes() {
     try {
       const res = await fetch("/api/quotes");
+      if (!res.ok) throw new Error("Error al cargar presupuestos");
       const data = await res.json();
       setQuotes(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
@@ -96,9 +99,10 @@ function QuotesPageInner() {
   async function fetchProducts() {
     try {
       const res = await fetch("/api/products");
+      if (!res.ok) return;
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
-    } catch {}
+    } catch (err) { console.error(err); }
   }
 
   async function fetchContacts() {
@@ -107,10 +111,10 @@ function QuotesPageInner() {
         fetch("/api/leads"),
         fetch("/api/clients"),
       ]);
-      const leads = await leadsRes.json();
-      const clients = await clientsRes.json();
+      const leads = leadsRes.ok ? await leadsRes.json() : [];
+      const clients = clientsRes.ok ? await clientsRes.json() : [];
       setContacts([...(Array.isArray(leads) ? leads : []), ...(Array.isArray(clients) ? clients : [])]);
-    } catch {}
+    } catch (err) { console.error(err); }
   }
 
   function addItem() {
@@ -141,7 +145,8 @@ function QuotesPageInner() {
   async function handleCreate(andSend = false) {
     setCreateError("");
     const sub = form.items.reduce((s, i) => s + computeItemTotal(i), 0);
-    const total = sub;
+    const tax = form.requiresFactura ? calcTax(sub) : 0;
+    const total = sub + tax;
     try {
       const res = await fetch("/api/quotes", {
         method: "POST",
@@ -156,6 +161,7 @@ function QuotesPageInner() {
             discountType: i.discountType,
           })),
           subtotal: sub,
+          tax,
           total,
           notes: form.notes,
           requiresFactura: form.requiresFactura,
@@ -177,6 +183,8 @@ function QuotesPageInner() {
             subtotal: sub,
             discount: 0,
             total,
+            tax,
+            requiresFactura: form.requiresFactura,
             notes: form.notes || null,
             items: created.items.map((it: { product: { name: string; category?: string }; quantity: number; unitPrice: string | number; total: string | number; discount: string | number; discountType: string }) => ({
               product: it.product,
@@ -220,6 +228,8 @@ function QuotesPageInner() {
       subtotal: q.subtotal,
       discount: q.discount,
       total: q.total,
+      tax: q.tax,
+      requiresFactura: q.requiresFactura,
       items: q.items.map((i) => ({
         product: i.product,
         quantity: i.quantity,
@@ -278,7 +288,7 @@ function QuotesPageInner() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} min={1} placeholder="Cant" />
+                  <Input type="number" className="w-20" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", Math.max(1, parseInt(e.target.value) || 1))} min={1} placeholder="Cant" />
                   <Input type="number" className="w-28" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)} placeholder="Precio" />
                   <div className="flex gap-1 items-center">
                     <Input type="number" className="w-20" value={item.discount} onChange={(e) => updateItem(idx, "discount", parseFloat(e.target.value) || 0)} min={0} placeholder="Dto" />
@@ -302,7 +312,18 @@ function QuotesPageInner() {
             {createError && <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{createError}</div>}
 
             <div className="flex gap-4 items-end flex-wrap">
-              <div className="text-lg font-bold">Total: {formatCurrency(subtotal)}</div>
+              {(() => {
+                const tax = form.requiresFactura ? calcTax(subtotal) : 0;
+                const total = subtotal + tax;
+                return (
+                  <div className="space-y-1">
+                    {form.requiresFactura && (
+                      <p className="text-sm text-muted-foreground">Subtotal: {formatCurrency(subtotal)} | IVA (21%): {formatCurrency(tax)}</p>
+                    )}
+                    <div className="text-lg font-bold">Total: {formatCurrency(total)}</div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -314,6 +335,12 @@ function QuotesPageInner() {
               />
               <Label htmlFor="requiresFactura">Requiere facturación</Label>
             </div>
+            {!form.requiresFactura && (
+              <div className="flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-600">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Los precios expresados en la lista no incluyen el IVA (21%).
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button onClick={() => handleCreate(false)} disabled={sending}>Guardar</Button>

@@ -10,6 +10,7 @@ export async function GET() {
   }
   try {
     const users = await prisma.user.findMany({
+      where: { deletedAt: null },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     });

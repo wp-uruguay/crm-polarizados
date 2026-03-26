@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, User, ShieldOff, AlertTriangle, Pencil, Save, X } from "lucide-react";
+import { Plus, User, ShieldOff, AlertTriangle, Pencil, Save, X, Trash2, Eye, EyeOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface UserData {
@@ -29,6 +29,8 @@ export default function SettingsPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "OPERATOR" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Fixed message
   const [msgTitle, setMsgTitle] = useState("Mensaje fijo");
@@ -110,11 +112,30 @@ export default function SettingsPage() {
       setSuccess("Usuario creado exitosamente");
       setShowForm(false);
       setForm({ name: "", email: "", password: "", role: "OPERATOR" });
+      setShowPassword(false);
       fetchUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(userId: string, userName: string) {
+    if (!confirm(`¿Estás seguro de eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`)) return;
+    setDeleting(userId);
+    try {
+      const res = await fetch(`/api/settings/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al eliminar");
+      }
+      setSuccess("Usuario eliminado exitosamente");
+      fetchUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar usuario");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -170,12 +191,23 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Contraseña</Label>
-                  <Input
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Mínimo 6 caracteres"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label>Rol</Label>
@@ -211,6 +243,7 @@ export default function SettingsPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Creado</TableHead>
+                  <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -224,6 +257,19 @@ export default function SettingsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDate(u.createdAt)}</TableCell>
+                    <TableCell>
+                      {u.id !== session?.user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(u.id, u.name)}
+                          disabled={deleting === u.id}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {users.length === 0 && (
@@ -265,6 +311,7 @@ export default function SettingsPage() {
                   onChange={(e) => setEditMsgTitle(e.target.value)}
                   placeholder="Título del mensaje..."
                   className="bg-zinc-900 border-zinc-700"
+                  maxLength={100}
                 />
               </div>
               <div className="space-y-1">
@@ -274,6 +321,7 @@ export default function SettingsPage() {
                   onChange={(e) => setEditMsgBody(e.target.value)}
                   placeholder="Texto del mensaje..."
                   className="bg-zinc-900 border-zinc-700"
+                  maxLength={500}
                 />
               </div>
             </div>
