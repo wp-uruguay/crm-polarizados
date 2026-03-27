@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +96,8 @@ const btnLast = btnBase + " rounded-r-md";
 // -- Page --------------------------------------------------------------------
 export default function ProductsPage() {
   const { format: formatCurrency } = useCurrency();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -483,6 +486,8 @@ export default function ProductsPage() {
                     <TableHead>Tonalidad</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Precio</TableHead>
+                    {isAdmin && <TableHead>Costo</TableHead>}
+                    {isAdmin && <TableHead>Margen</TableHead>}
                     <TableHead>Descuentos</TableHead>
                     <TableHead>Unidades</TableHead>
                     <TableHead>Estado</TableHead>
@@ -534,6 +539,22 @@ export default function ProductsPage() {
                         <span className="text-muted-foreground text-xs ml-1">/ {product.minStock}</span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap font-medium">{formatCurrency(product.price)}</TableCell>
+                      {isAdmin && (
+                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                          {product.cost != null ? formatCurrency(product.cost) : <span className="text-xs">-</span>}
+                        </TableCell>
+                      )}
+                      {isAdmin && (
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {product.cost != null ? (
+                            <span className="font-medium text-green-600">
+                              {(((product.price - product.cost) / product.price) * 100).toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         {product.discounts.length > 0 ? (
                           <div className="flex flex-col gap-0.5">
@@ -563,7 +584,7 @@ export default function ProductsPage() {
                   ))}
                   {visibleProducts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={isAdmin ? 15 : 13} className="text-center text-muted-foreground py-8">
                         No se encontraron productos
                       </TableCell>
                     </TableRow>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, use } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,8 @@ interface UserOption {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { format: formatCurrency } = useCurrency();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
   const { id } = use(params);
   const router = useRouter();
 
@@ -455,18 +458,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </p>
             </CardContent>
           </Card>
-          {product.cost != null && (
+          {isAdmin && product.cost != null && (
             <Card>
               <CardContent className="pt-5">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Tag size={14} />
-                  <span className="text-xs">Costo</span>
+                  <span className="text-xs">Costo landed</span>
                 </div>
                 <p className="text-2xl font-bold">{formatCurrency(product.cost)}</p>
               </CardContent>
             </Card>
           )}
-          {product.cost != null && (
+          {isAdmin && product.cost != null && (
             <Card>
               <CardContent className="pt-5">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -811,10 +814,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <Label>Precio de venta *</Label>
                 <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
               </div>
-              <div className="space-y-1">
-                <Label>Costo</Label>
-                <Input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Opcional" />
-              </div>
+              {isAdmin && (
+                <div className="space-y-1">
+                  <Label>Costo landed</Label>
+                  <Input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="Opcional" />
+                </div>
+              )}
             </div>
 
             {/* Imagen */}

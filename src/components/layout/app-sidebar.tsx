@@ -24,6 +24,7 @@ import {
   Truck,
   ClipboardList,
   BarChart3,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,20 +36,24 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
-const navItems = [
+const simpleItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Leads", href: "/leads", icon: UserPlus },
   { label: "Clientes", href: "/clients", icon: Users },
-  { label: "Productos", href: "/products", icon: Package },
-  { label: "Presupuestos", href: "/quotes", icon: FileText },
-  { label: "Ventas", href: "/sales", icon: ShoppingCart },
-  { label: "Remitos", href: "/remitos", icon: FileCheck },
-  { label: "Pagos", href: "/payments", icon: CreditCard },
-  { label: "Proveedores", href: "/suppliers", icon: Truck },
-  { label: "Órdenes de Compra", href: "/purchase-orders", icon: ClipboardList },
-  { label: "Movimientos Stock", href: "/stock-movements", icon: BarChart3 },
+];
+
+const bottomItems = [
   { label: "Competencia", href: "/competitors", icon: Target },
   { label: "AI Insights", href: "/ai-insights", icon: Brain },
   { label: "RRSS Creator", href: "/social-creator", icon: Sparkles },
@@ -57,10 +62,41 @@ const navItems = [
   { label: "Llamadas", href: "/calendar/calls", icon: Phone },
 ];
 
+const productosSubItems = [
+  { label: "Productos / Stock", href: "/products", icon: Package },
+  { label: "Proveedores", href: "/suppliers", icon: Truck },
+  { label: "Movimientos Stock", href: "/stock-movements", icon: BarChart3 },
+];
+
+const ventasSubItems = [
+  { label: "Ventas", href: "/sales", icon: ShoppingCart },
+  { label: "Presupuestos", href: "/quotes", icon: FileText },
+  { label: "Remitos", href: "/remitos", icon: FileCheck },
+  { label: "Pagos", href: "/payments", icon: CreditCard },
+  { label: "Órdenes de Compra", href: "/purchase-orders", icon: ClipboardList },
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const handleNavClick = () => {
+    if (isMobile) setOpenMobile(false);
+  };
+
+  const productosActive = productosSubItems.some((i) => isActive(i.href));
+  const ventasActive = ventasSubItems.some((i) => isActive(i.href));
+
+  const [productosOpen, setProductosOpen] = useState(productosActive);
+  const [ventasOpen, setVentasOpen] = useState(ventasActive);
+
+  useEffect(() => {
+    if (productosActive) setProductosOpen(true);
+    if (ventasActive) setVentasOpen(true);
+  }, [pathname, productosActive, ventasActive]);
 
   const [msgTitle, setMsgTitle] = useState("");
   const [msgBody, setMsgBody] = useState("");
@@ -101,20 +137,105 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+
+              {/* Simple top items */}
+              {simpleItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
                     isActive={isActive(item.href)}
                     tooltip={item.label}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={handleNavClick}>
                       <item.icon />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Productos (collapsible) */}
+              <Collapsible open={productosOpen} onOpenChange={setProductosOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={productosActive}
+                      tooltip="Productos"
+                    >
+                      <Package />
+                      <span>Productos</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {productosSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isActive(item.href)}
+                          >
+                            <Link href={item.href} onClick={handleNavClick}>
+                              <item.icon />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Ventas (collapsible) */}
+              <Collapsible open={ventasOpen} onOpenChange={setVentasOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={ventasActive}
+                      tooltip="Ventas"
+                    >
+                      <ShoppingCart />
+                      <span>Ventas</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {ventasSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isActive(item.href)}
+                          >
+                            <Link href={item.href} onClick={handleNavClick}>
+                              <item.icon />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Bottom items */}
+              {bottomItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.label}
+                  >
+                    <Link href={item.href} onClick={handleNavClick}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -124,7 +245,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={isActive("/settings")} tooltip="Configuración">
-              <Link href="/settings">
+              <Link href="/settings" onClick={handleNavClick}>
                 <Settings />
                 <span>Configuración</span>
               </Link>

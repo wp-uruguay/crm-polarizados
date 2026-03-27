@@ -10,6 +10,8 @@ export async function GET(request: Request) {
     }
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
+    const city = searchParams.get("city");
+    const state = searchParams.get("state");
 
     const where: Record<string, unknown> = { type: "CLIENT" as const };
 
@@ -22,6 +24,9 @@ export async function GET(request: Request) {
         { phone: { contains: search } },
       ];
     }
+
+    if (city) where.city = { contains: city };
+    if (state) where.state = state;
 
     const clients = await prisma.contact.findMany({
       where,

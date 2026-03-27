@@ -41,6 +41,14 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+// ── Argentine provinces ───────────────────────────────────────────────────────
+const AR_PROVINCES = [
+  "Buenos Aires", "Ciudad Autónoma de Buenos Aires", "Catamarca", "Chaco", "Chubut",
+  "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja",
+  "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis",
+  "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán",
+];
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface TagDef {
   id: string;
@@ -58,6 +66,8 @@ interface Client {
   phone: string | null;
   whatsapp: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
   assignedTo: { id: string; name: string } | null;
   createdAt: string;
   totalPurchases: number;
@@ -103,6 +113,8 @@ export default function ClientsPage() {
   const [filterHasAddress, setFilterHasAddress] = useState(false);
   const [filterWithBalance, setFilterWithBalance] = useState(false);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [filterCity, setFilterCity] = useState<string | null>(null);
+  const [filterState, setFilterState] = useState<string | null>(null);
   const [sortDate, setSortDate] = useState<"asc" | "desc" | null>(null);
   const [myClients, setMyClients] = useState(false);
 
@@ -118,6 +130,8 @@ export default function ClientsPage() {
     filterHasAddress,
     filterWithBalance,
     filterTagId !== null,
+    filterCity !== null,
+    filterState !== null,
     sortDate !== null,
     myClients,
   ].filter(Boolean).length;
@@ -127,7 +141,7 @@ export default function ClientsPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     firstName: "", lastName: "", company: "", sector: "",
-    email: "", phone: "", whatsapp: "", address: "", notes: "",
+    email: "", phone: "", whatsapp: "", address: "", city: "", state: "", notes: "",
   });
 
   const [mapClient, setMapClient] = useState<Client | null>(null);
@@ -180,6 +194,8 @@ export default function ClientsPage() {
     if (filterHasAddress) result = result.filter((c) => !!c.address);
     if (filterWithBalance) result = result.filter((c) => (c.balance ?? 0) > 0);
     if (filterTagId) result = result.filter((c) => c.tags?.some((t) => t.tag.id === filterTagId));
+    if (filterCity) result = result.filter((c) => c.city?.toLowerCase().includes(filterCity.toLowerCase()));
+    if (filterState) result = result.filter((c) => c.state === filterState);
     if (myClients && session?.user?.id)
       result = result.filter((c) => c.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -187,7 +203,7 @@ export default function ClientsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, myClients, sortDate, session]);
+  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterCity, filterState, myClients, sortDate, session]);
 
   const clientsWithEmail = visibleClients.filter((c) => !!c.email);
 
@@ -196,6 +212,8 @@ export default function ClientsPage() {
     setFilterHasAddress(false);
     setFilterWithBalance(false);
     setFilterTagId(null);
+    setFilterCity(null);
+    setFilterState(null);
     setSortDate(null);
     setMyClients(false);
   }
@@ -255,7 +273,7 @@ export default function ClientsPage() {
       });
       if (!res.ok) throw new Error("Error al crear cliente");
       setDialogOpen(false);
-      setForm({ firstName: "", lastName: "", company: "", sector: "", email: "", phone: "", whatsapp: "", address: "", notes: "" });
+      setForm({ firstName: "", lastName: "", company: "", sector: "", email: "", phone: "", whatsapp: "", address: "", city: "", state: "", notes: "" });
       fetchClients();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear cliente");
@@ -520,7 +538,24 @@ export default function ClientsPage() {
             </div>
             <div className="space-y-1">
               <Label>Dirección</Label>
-              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234, Ciudad" />
+              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Ciudad</Label>
+                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
+              </div>
+              <div className="space-y-1">
+                <Label>Provincia</Label>
+                <Select value={form.state || undefined} onValueChange={(v) => setForm({ ...form, state: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {AR_PROVINCES.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -612,6 +647,16 @@ export default function ClientsPage() {
                     <DropdownMenuItem onClick={() => setFilterWithBalance(!filterWithBalance)} className="gap-2">
                       <DollarSign size={13} /> Con saldo pendiente {filterWithBalance && "✓"}
                     </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia {filterState && `(${filterState.split(" ")[0]})`}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                        {AR_PROVINCES.map((prov) => (
+                          <DropdownMenuItem key={prov} onClick={() => setFilterState(filterState === prov ? null : prov)} className="gap-2">
+                            {prov} {filterState === prov && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="gap-2"><Filter size={13} />Por rubro</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
@@ -767,16 +812,16 @@ export default function ClientsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {client.address ? (
+                          {(client.address || client.city || client.state) ? (
                             <button
                               onClick={() => setMapClient(client)}
-                              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors max-w-[160px] truncate"
-                              title={client.address}
+                              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors max-w-[180px]"
+                              title={[client.address, client.city, client.state].filter(Boolean).join(", ")}
                             >
                               <MapPin size={13} className="shrink-0 text-primary" />
-                              <span className="truncate">{client.address}</span>
+                              <span className="truncate">{[client.address, client.city, client.state].filter(Boolean).join(", ")}</span>
                             </button>
-                          ) : "-"}
+                          ) : <span className="text-xs">-</span>}
                         </TableCell>
                         <TableCell>
                           {client.email ? (

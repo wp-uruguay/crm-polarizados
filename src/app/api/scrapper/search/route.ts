@@ -10,8 +10,30 @@ interface PlaceResult {
   formatted_address?: string;
   geometry: { location: { lat: number; lng: number } };
   formatted_phone_number?: string;
+  international_phone_number?: string;
   website?: string;
   types?: string[];
+}
+
+interface PlaceDetails {
+  formatted_phone_number?: string;
+  international_phone_number?: string;
+  website?: string;
+}
+
+async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
+  try {
+    const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+    url.searchParams.set("place_id", placeId);
+    url.searchParams.set("fields", "formatted_phone_number,international_phone_number,website");
+    url.searchParams.set("language", "es");
+    url.searchParams.set("key", MAPS_KEY());
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    return (data.result ?? {}) as PlaceDetails;
+  } catch {
+    return {};
+  }
 }
 
 // Geocode city+province to lat/lng
@@ -128,11 +150,17 @@ export async function POST(request: Request) {
     }
   }
 
-  const businesses = allPlaces.slice(0, 60).map((p) => ({
+  // Fetch Place Details for each result in parallel to get phone + website
+  const topPlaces = allPlaces.slice(0, 40);
+  const details = await Promise.all(
+    topPlaces.map((p) => getPlaceDetails(p.place_id))
+  );
+
+  const businesses = topPlaces.map((p, i) => ({
     name: p.name,
     address: p.vicinity || p.formatted_address || "",
-    phone: p.formatted_phone_number || "",
-    website: p.website || "",
+    phone: details[i].formatted_phone_number || details[i].international_phone_number || "",
+    website: details[i].website || "",
     lat: p.geometry.location.lat,
     lng: p.geometry.location.lng,
     type: inferType(p.types, p.name),

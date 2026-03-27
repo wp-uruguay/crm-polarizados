@@ -47,6 +47,13 @@ interface TagDef {
   color: string;
 }
 
+const AR_PROVINCES = [
+  "Buenos Aires", "Ciudad Autónoma de Buenos Aires", "Catamarca", "Chaco", "Chubut",
+  "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja",
+  "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis",
+  "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán",
+];
+
 interface Lead {
   id: string;
   firstName: string;
@@ -57,6 +64,8 @@ interface Lead {
   phone: string | null;
   whatsapp: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
   contacted: boolean;
   contactMethod: string | null;
   assignedTo: { id: string; name: string } | null;
@@ -84,8 +93,8 @@ const sectorLabel: Record<string, string> = {
   AUTOMOTRIZ: "Automotriz", ARQUITECTURA: "Arquitectura", SOFTWARE: "Software",
 };
 
-const CSV_COLUMNS = ["firstName", "lastName", "company", "sector", "email", "phone", "whatsapp", "address", "notes"];
-const CSV_TEMPLATE = CSV_COLUMNS.join(",") + "\nJuan,Pérez,Empresa SA,AUTOMOTRIZ,juan@empresa.com,5512345678,5512345678,Av. Siempre Viva 123,Interesado en láminas\n";
+const CSV_COLUMNS = ["firstName", "lastName", "company", "sector", "email", "phone", "whatsapp", "address", "city", "state", "notes"];
+const CSV_TEMPLATE = CSV_COLUMNS.join(",") + "\nJuan,Pérez,Empresa SA,AUTOMOTRIZ,juan@empresa.com,5512345678,5512345678,Av. Siempre Viva 123,Rosario,Santa Fe,Interesado en láminas\n";
 
 function parseCSV(text: string): Record<string, string>[] {
   // Strip BOM (added by Excel on Windows)
@@ -128,6 +137,8 @@ export default function LeadsPage() {
   const [filterSector, setFilterSector] = useState<string | null>(null);
   const [filterHasAddress, setFilterHasAddress] = useState(false);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [filterCity, setFilterCity] = useState<string | null>(null);
+  const [filterState, setFilterState] = useState<string | null>(null);
   const [sortDate, setSortDate] = useState<"asc" | "desc" | null>(null);
   const [myLeads, setMyLeads] = useState(false);
 
@@ -143,6 +154,8 @@ export default function LeadsPage() {
     filterSector !== null,
     filterHasAddress,
     filterTagId !== null,
+    filterCity !== null,
+    filterState !== null,
     sortDate !== null,
     myLeads,
   ].filter(Boolean).length;
@@ -152,7 +165,7 @@ export default function LeadsPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     firstName: "", lastName: "", company: "", sector: "",
-    email: "", phone: "", whatsapp: "", address: "", notes: "",
+    email: "", phone: "", whatsapp: "", address: "", city: "", state: "", notes: "",
   });
 
   const [mapLead, setMapLead] = useState<Lead | null>(null);
@@ -221,6 +234,8 @@ export default function LeadsPage() {
     if (filterSector) result = result.filter((l) => l.sector === filterSector);
     if (filterHasAddress) result = result.filter((l) => !!l.address);
     if (filterTagId) result = result.filter((l) => l.tags?.some((t) => t.tag.id === filterTagId));
+    if (filterCity) result = result.filter((l) => l.city?.toLowerCase().includes(filterCity.toLowerCase()));
+    if (filterState) result = result.filter((l) => l.state === filterState);
     if (myLeads && session?.user?.id)
       result = result.filter((l) => l.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -228,7 +243,7 @@ export default function LeadsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-  }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, myLeads, sortDate, session]);
+  }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, filterCity, filterState, myLeads, sortDate, session]);
 
   const leadsWithEmail = visibleLeads.filter((l) => !!l.email);
 
@@ -237,6 +252,8 @@ export default function LeadsPage() {
     setFilterSector(null);
     setFilterHasAddress(false);
     setFilterTagId(null);
+    setFilterCity(null);
+    setFilterState(null);
     setSortDate(null);
     setMyLeads(false);
   }
@@ -296,7 +313,7 @@ export default function LeadsPage() {
       });
       if (!res.ok) throw new Error("Error al crear lead");
       setDialogOpen(false);
-      setForm({ firstName: "", lastName: "", company: "", sector: "", email: "", phone: "", whatsapp: "", address: "", notes: "" });
+      setForm({ firstName: "", lastName: "", company: "", sector: "", email: "", phone: "", whatsapp: "", address: "", city: "", state: "", notes: "" });
       fetchLeads();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear lead");
@@ -647,7 +664,24 @@ export default function LeadsPage() {
             </div>
             <div className="space-y-1">
               <Label>Dirección</Label>
-              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234, Ciudad" />
+              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Ciudad</Label>
+                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
+              </div>
+              <div className="space-y-1">
+                <Label>Provincia</Label>
+                <Select value={form.state || undefined} onValueChange={(v) => setForm({ ...form, state: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {AR_PROVINCES.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -736,6 +770,16 @@ export default function LeadsPage() {
                     <DropdownMenuItem onClick={() => setFilterHasAddress(!filterHasAddress)} className="gap-2">
                       <MapPin size={13} /> Con dirección {filterHasAddress && "✓"}
                     </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia {filterState && `(${filterState.split(" ")[0]})`}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                        {AR_PROVINCES.map((prov) => (
+                          <DropdownMenuItem key={prov} onClick={() => setFilterState(filterState === prov ? null : prov)} className="gap-2">
+                            {prov} {filterState === prov && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="gap-2"><Filter size={13} />Por rubro</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
@@ -947,11 +991,13 @@ export default function LeadsPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {lead.address ? (
+                              {(lead.address || lead.city || lead.state) ? (
                                 <button onClick={() => setMapLead(lead)}
-                                  className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors text-left max-w-[160px]">
+                                  className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors text-left max-w-[180px]">
                                   <MapPin size={14} className="shrink-0 text-primary" />
-                                  <span className="truncate">{lead.address}</span>
+                                  <span className="truncate">
+                                    {[lead.address, lead.city, lead.state].filter(Boolean).join(", ")}
+                                  </span>
                                 </button>
                               ) : <span className="text-muted-foreground text-xs">-</span>}
                             </TableCell>

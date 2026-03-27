@@ -265,7 +265,7 @@ export default function ScrapperPage() {
           city: city.trim() || null,
           state: province || null,
           sector,
-          notes: `Importado desde DR Scrapp.${biz.address ? ` Dirección: ${biz.address}.` : ""}${biz.website ? ` Web: ${biz.website}` : ""}`,
+          notes: `Importado desde DR Scrapp.${biz.website ? ` Web: ${biz.website}` : ""}`,
         }),
       });
       if (!res.ok) throw new Error("Error al agregar lead");
