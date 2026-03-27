@@ -39,7 +39,7 @@ Se necesita un modelo `ImportCost` asociado a una `PurchaseOrder`, con campos po
 
 ---
 
-### 3. Movimientos de Stock (Trazabilidad)
+### 3. Movimientos de Stock (Trazabilidad) - HECHO
 
 Hoy el stock es un número que sube y baja sin historia. Problemas:
 - No se puede saber por qué bajó el stock

@@ -1,4 +1,30 @@
+# Database
 DATABASE_URL="mysql://user:password@localhost:3306/crm_polarizados"
+
+# Auth
 NEXTAUTH_SECRET="your-secret-key-here"
 NEXTAUTH_URL="http://localhost:3000"
+AUTH_URL="http://localhost:3000"
+
+# AI
 ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Email (SMTP)
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="587"
+SMTP_USER="your-email@example.com"
+SMTP_PASS="your-email-password"
+SMTP_FROM="noreply@example.com"
+
+# Resend (alternativa email)
+RESEND_API_KEY="your-resend-api-key"
+
+# ClickUp
+CLICKUP_API_KEY="your-clickup-api-key"
+CLICKUP_LIST_ID="your-clickup-list-id"
+
+# WhatsApp
+WHATSAPP_PHONE="5491100000000"
+
+# Google Maps
+GOOGLE_MAPS_API_KEY="your-google-maps-api-key"
