@@ -58,6 +58,7 @@ interface LeadDetail {
   whatsapp: string | null;
   address: string | null;
   city: string | null;
+  state: string | null;
   contacted: boolean;
   contactMethod: string | null;
   contactDate: string | null;
@@ -88,7 +89,12 @@ const quoteStatusLabels: Record<string, string> = {
 };
 
 const sectorLabels: Record<string, string> = {
-  AUTOMOTRIZ: "Automotriz", ARQUITECTURA: "Arquitectura", SOFTWARE: "Software",
+  AUTO_TALLER: "Auto - Taller",
+  AUTO_CONCESIONARIO: "Auto - Consecionario",
+  AUTO_MAYORISTA: "Auto - Mayorista",
+  ARQUITECTURA_CONSTRUCTORA: "Arquitectura - Constructora",
+  ARQUITECTURA_VIDRIERIA: "Arquitectura - Vidrieria",
+  ARQUITECTURA_MAYORISTA: "Arquitectura - MAyorista",
 };
 
 const contactMethodLabels: Record<string, string> = {
@@ -112,7 +118,7 @@ export default function LeadDetailPage() {
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", company: "", sector: "", email: "",
-    phone: "", whatsapp: "", address: "", city: "", notes: "",
+    phone: "", whatsapp: "", address: "", city: "", state: "", notes: "",
     contacted: false, contactMethod: "", contactDate: "", assignedToId: "",
     vehicleFlowWeekly: "", architecturalFlowMonthly: "", currentSupplier: "",
     currentSupplierPrices: "", avatarUrl: "",
@@ -131,6 +137,7 @@ export default function LeadDetailPage() {
       whatsapp: data.whatsapp || "",
       address: data.address || "",
       city: data.city || "",
+      state: data.state || "",
       notes: data.notes || "",
       contacted: data.contacted || false,
       contactMethod: data.contactMethod || "",
@@ -175,7 +182,7 @@ export default function LeadDetailPage() {
           company: form.company || null, sector: form.sector || null,
           email: form.email || null, phone: form.phone || null,
           whatsapp: form.whatsapp || null, address: form.address || null,
-          city: form.city || null, notes: form.notes || null,
+          city: form.city || null, state: form.state || null, notes: form.notes || null,
           contacted: form.contacted, contactMethod: form.contactMethod || null,
           contactDate: form.contactDate || null,
           assignedToId: form.assignedToId || null,
@@ -338,16 +345,29 @@ export default function LeadDetailPage() {
                   <Select value={form.sector || undefined} onValueChange={(v) => setForm({ ...form, sector: v })}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="AUTOMOTRIZ">Automotriz</SelectItem>
-                      <SelectItem value="ARQUITECTURA">Arquitectura</SelectItem>
-                      <SelectItem value="SOFTWARE">Software</SelectItem>
+                      <SelectItem value="AUTO_TALLER">Auto - Taller</SelectItem>
+                      <SelectItem value="AUTO_CONCESIONARIO">Auto - Consecionario</SelectItem>
+                      <SelectItem value="AUTO_MAYORISTA">Auto - Mayorista</SelectItem>
+                      <SelectItem value="ARQUITECTURA_CONSTRUCTORA">Arquitectura - Constructora</SelectItem>
+                      <SelectItem value="ARQUITECTURA_VIDRIERIA">Arquitectura - Vidrieria</SelectItem>
+                      <SelectItem value="ARQUITECTURA_MAYORISTA">Arquitectura - MAyorista</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Dirección</Label>
+                <Label>Calle y número</Label>
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Ciudad</Label>
+                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Provincia</Label>
+                  <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -439,6 +459,7 @@ export default function LeadDetailPage() {
                 { label: "WhatsApp", value: lead.whatsapp },
                 { label: "Dirección", value: lead.address },
                 { label: "Ciudad", value: lead.city },
+                { label: "Provincia", value: lead.state },
               ].map(({ label, value }) => value ? (
                 <div key={label} className="flex justify-between gap-4 py-1.5 border-b last:border-0">
                   <span className="text-muted-foreground shrink-0">{label}</span>

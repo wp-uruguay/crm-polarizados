@@ -1,0 +1,3 @@
+
+ - Font: Space Grotesk
+ - Icons: Lucide

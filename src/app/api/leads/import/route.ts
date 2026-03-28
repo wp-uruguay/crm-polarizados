@@ -11,9 +11,34 @@ export async function POST(request: Request) {
     }
 
     const SECTOR_MAP: Record<string, string> = {
-      automotriz: "AUTOMOTRIZ", automotive: "AUTOMOTRIZ",
-      arquitectura: "ARQUITECTURA", architecture: "ARQUITECTURA",
-      software: "SOFTWARE",
+      "auto - taller": "AUTO_TALLER",
+      auto_taller: "AUTO_TALLER",
+      autotaller: "AUTO_TALLER",
+      taller: "AUTO_TALLER",
+      automotriz: "AUTO_TALLER",
+      automotive: "AUTO_TALLER",
+
+      "auto - consecionario": "AUTO_CONCESIONARIO",
+      auto_consecionario: "AUTO_CONCESIONARIO",
+      consecionario: "AUTO_CONCESIONARIO",
+      concesionario: "AUTO_CONCESIONARIO",
+      concesionaria: "AUTO_CONCESIONARIO",
+
+      "auto - mayorista": "AUTO_MAYORISTA",
+      auto_mayorista: "AUTO_MAYORISTA",
+
+      "arquitectura - constructora": "ARQUITECTURA_CONSTRUCTORA",
+      arquitectura_constructora: "ARQUITECTURA_CONSTRUCTORA",
+      arquitectura: "ARQUITECTURA_CONSTRUCTORA",
+      constructora: "ARQUITECTURA_CONSTRUCTORA",
+      architecture: "ARQUITECTURA_CONSTRUCTORA",
+
+      "arquitectura - vidrieria": "ARQUITECTURA_VIDRIERIA",
+      arquitectura_vidrieria: "ARQUITECTURA_VIDRIERIA",
+      vidrieria: "ARQUITECTURA_VIDRIERIA",
+
+      "arquitectura - mayorista": "ARQUITECTURA_MAYORISTA",
+      arquitectura_mayorista: "ARQUITECTURA_MAYORISTA",
     };
 
     const data = rows.map((row) => {
