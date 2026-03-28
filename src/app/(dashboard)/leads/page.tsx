@@ -252,13 +252,8 @@ export default function LeadsPage() {
     if (filterSector) result = result.filter((l) => l.sector === filterSector);
     if (filterHasAddress) result = result.filter((l) => !!l.address);
     if (filterTagId) result = result.filter((l) => l.tags?.some((t) => t.tag.id === filterTagId));
-<<<<<<< HEAD
-    if (filterCity) result = result.filter((l) => l.city?.toLowerCase().includes(filterCity.toLowerCase()));
     if (filterState) result = result.filter((l) => l.state === filterState);
-=======
-    if (filterState) result = result.filter((l) => l.state?.toLowerCase() === filterState.toLowerCase());
-    if (filterCity) result = result.filter((l) => l.city?.toLowerCase() === filterCity.toLowerCase());
->>>>>>> actualizacion-rubros
+    if (filterCity) result = result.filter((l) => l.city?.toLowerCase().includes(filterCity.toLowerCase()));
     if (myLeads && session?.user?.id)
       result = result.filter((l) => l.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -266,11 +261,7 @@ export default function LeadsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-<<<<<<< HEAD
-  }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, filterCity, filterState, myLeads, sortDate, session]);
-=======
   }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, filterState, filterCity, myLeads, sortDate, session]);
->>>>>>> actualizacion-rubros
 
   const leadsWithEmail = visibleLeads.filter((l) => !!l.email);
 
@@ -279,13 +270,8 @@ export default function LeadsPage() {
     setFilterSector(null);
     setFilterHasAddress(false);
     setFilterTagId(null);
-<<<<<<< HEAD
-    setFilterCity(null);
-    setFilterState(null);
-=======
     setFilterState(null);
     setFilterCity(null);
->>>>>>> actualizacion-rubros
     setSortDate(null);
     setMyLeads(false);
   }
@@ -698,17 +684,12 @@ export default function LeadsPage() {
               </div>
             </div>
             <div className="space-y-1">
-<<<<<<< HEAD
               <Label>Dirección</Label>
-=======
-              <Label>Calle y número</Label>
->>>>>>> actualizacion-rubros
               <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ciudad</Label>
-<<<<<<< HEAD
                 <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
               </div>
               <div className="space-y-1">
@@ -721,13 +702,6 @@ export default function LeadsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-=======
-                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Provincia</Label>
-                <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
->>>>>>> actualizacion-rubros
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1167,7 +1141,6 @@ export default function LeadsPage() {
                                 </div>
                               </div>
                             </TableCell>
-<<<<<<< HEAD
                             <TableCell>
                               {(lead.address || lead.city || lead.state) ? (
                                 <button onClick={() => setMapLead(lead)}
@@ -1178,10 +1151,6 @@ export default function LeadsPage() {
                                   </span>
                                 </button>
                               ) : <span className="text-muted-foreground text-xs">-</span>}
-=======
-                            <TableCell className="text-sm max-w-[80px] truncate">
-                              {lead.city || <span className="text-muted-foreground text-xs">-</span>}
->>>>>>> actualizacion-rubros
                             </TableCell>
                             <TableCell className="text-sm max-w-[60px] truncate">
                               {lead.state || <span className="text-muted-foreground text-xs">-</span>}

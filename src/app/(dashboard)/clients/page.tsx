@@ -138,13 +138,8 @@ export default function ClientsPage() {
     filterHasAddress,
     filterWithBalance,
     filterTagId !== null,
-<<<<<<< HEAD
-    filterCity !== null,
-    filterState !== null,
-=======
     filterState !== null,
     filterCity !== null,
->>>>>>> actualizacion-rubros
     sortDate !== null,
     myClients,
   ].filter(Boolean).length;
@@ -220,13 +215,8 @@ export default function ClientsPage() {
     if (filterHasAddress) result = result.filter((c) => !!c.address);
     if (filterWithBalance) result = result.filter((c) => (c.balance ?? 0) > 0);
     if (filterTagId) result = result.filter((c) => c.tags?.some((t) => t.tag.id === filterTagId));
-<<<<<<< HEAD
-    if (filterCity) result = result.filter((c) => c.city?.toLowerCase().includes(filterCity.toLowerCase()));
     if (filterState) result = result.filter((c) => c.state === filterState);
-=======
-    if (filterState) result = result.filter((c) => c.state?.toLowerCase() === filterState.toLowerCase());
-    if (filterCity) result = result.filter((c) => c.city?.toLowerCase() === filterCity.toLowerCase());
->>>>>>> actualizacion-rubros
+    if (filterCity) result = result.filter((c) => c.city?.toLowerCase().includes(filterCity.toLowerCase()));
     if (myClients && session?.user?.id)
       result = result.filter((c) => c.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -234,11 +224,7 @@ export default function ClientsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-<<<<<<< HEAD
-  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterCity, filterState, myClients, sortDate, session]);
-=======
-  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterState, filterCity, myClients, sortDate, session]);
->>>>>>> actualizacion-rubros
+  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterState, filterCity, myClients, sortDate, session];
 
   const clientsWithEmail = visibleClients.filter((c) => !!c.email);
 
@@ -247,13 +233,8 @@ export default function ClientsPage() {
     setFilterHasAddress(false);
     setFilterWithBalance(false);
     setFilterTagId(null);
-<<<<<<< HEAD
-    setFilterCity(null);
-    setFilterState(null);
-=======
     setFilterState(null);
     setFilterCity(null);
->>>>>>> actualizacion-rubros
     setSortDate(null);
     setMyClients(false);
   }
@@ -580,17 +561,12 @@ export default function ClientsPage() {
               </div>
             </div>
             <div className="space-y-1">
-<<<<<<< HEAD
               <Label>Dirección</Label>
-=======
-              <Label>Calle y número</Label>
->>>>>>> actualizacion-rubros
               <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ciudad</Label>
-<<<<<<< HEAD
                 <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
               </div>
               <div className="space-y-1">
@@ -603,13 +579,6 @@ export default function ClientsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-=======
-                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Provincia</Label>
-                <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
->>>>>>> actualizacion-rubros
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -992,7 +961,6 @@ export default function ClientsPage() {
                             </div>
                           </div>
                         </TableCell>
-<<<<<<< HEAD
                         <TableCell>
                           {(client.address || client.city || client.state) ? (
                             <button
@@ -1004,13 +972,6 @@ export default function ClientsPage() {
                               <span className="truncate">{[client.address, client.city, client.state].filter(Boolean).join(", ")}</span>
                             </button>
                           ) : <span className="text-xs">-</span>}
-=======
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {client.city || <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {client.state || <span className="text-muted-foreground">-</span>}
->>>>>>> actualizacion-rubros
                         </TableCell>
                         <TableCell>
                           {client.email ? (
