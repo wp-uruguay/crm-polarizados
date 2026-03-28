@@ -150,7 +150,7 @@ model Contact {
   firstName       String
   lastName        String
   company         String?
-  sector          String?       // AUTOMOTRIZ | ARQUITECTURA | SOFTWARE
+  sector          String?       // AUTO_TALLER | AUTO_CONCESIONARIO | AUTO_MAYORISTA | ARQUITECTURA_CONSTRUCTORA | ARQUITECTURA_VIDRIERIA | ARQUITECTURA_MAYORISTA
   email           String?
   phone           String?
   whatsapp        String?

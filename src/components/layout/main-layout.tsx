@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -36,9 +37,11 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children, title = "Dashboard" }: MainLayoutProps) {
+  const { status } = useSession();
+
   return (
     <CurrencyProvider>
-      <SidebarProvider>
+      <SidebarProvider suppressHydrationWarning>
         <AppSidebar />
         <SidebarInset>
           <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-4">
@@ -47,8 +50,12 @@ export function MainLayout({ children, title = "Dashboard" }: MainLayoutProps) {
             <span className="flex-1 text-sm font-medium text-muted-foreground">{title}</span>
             <CurrencyToggle />
             <Separator orientation="vertical" className="mx-2 h-4" />
-            <NotificationBell />
-            <Separator orientation="vertical" className="mx-2 h-4" />
+            {status === "authenticated" && (
+              <>
+                <NotificationBell />
+                <Separator orientation="vertical" className="mx-2 h-4" />
+              </>
+            )}
             <UserMenu />
           </header>
           <div className="flex flex-1 flex-col p-6">

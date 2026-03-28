@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Bell, BellDot, CheckCheck, CalendarDays, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ function timeAgo(dateStr: string) {
 }
 
 export function NotificationBell() {
+  const { status } = useSession();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -32,6 +34,7 @@ export function NotificationBell() {
   const unread = notifs.filter((n) => !n.read).length;
 
   async function fetchNotifs() {
+    if (status !== "authenticated") return;
     try {
       const res = await fetch("/api/notifications");
       if (res.ok) setNotifs(await res.json());
@@ -39,10 +42,15 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
+    if (status !== "authenticated") {
+      setNotifs([]);
+      return;
+    }
+
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [status]);
 
   // Close on outside click
   useEffect(() => {
@@ -54,11 +62,13 @@ export function NotificationBell() {
   }, []);
 
   async function markRead(id: string) {
+    if (status !== "authenticated") return;
     await fetch(`/api/notifications/${id}`, { method: "PATCH" });
     setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
   }
 
   async function markAllRead() {
+    if (status !== "authenticated") return;
     await fetch("/api/notifications", { method: "POST" });
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
   }

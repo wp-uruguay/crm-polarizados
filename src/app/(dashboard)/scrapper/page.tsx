@@ -79,11 +79,11 @@ const BUSINESS_TYPES: BusinessType[] = [
 ];
 
 const SECTOR_MAP: Record<string, string> = {
-  "Talleres/Autodetailing": "AUTOMOTRIZ",
-  "Vidriería/Glass": "AUTOMOTRIZ",
-  "Arquitectura": "ARQUITECTURA",
-  "Concesionarias": "AUTOMOTRIZ",
-  "Todos": "AUTOMOTRIZ",
+  "Talleres/Autodetailing": "AUTO_TALLER",
+  "Vidriería/Glass": "ARQUITECTURA_VIDRIERIA",
+  "Arquitectura": "ARQUITECTURA_CONSTRUCTORA",
+  "Concesionarias": "AUTO_CONCESIONARIO",
+  "Todos": "AUTO_TALLER",
 };
 
 // ── City Autocomplete ────────────────────────────────────────────────────────
@@ -252,7 +252,7 @@ export default function ScrapperPage() {
   async function handleAddToLeads(biz: ScrapedBusiness, idx: number) {
     setAddingIdx(idx);
     try {
-      const sector = SECTOR_MAP[biz.type ?? "Todos"] ?? "AUTOMOTRIZ";
+      const sector = SECTOR_MAP[biz.type ?? "Todos"] ?? "AUTO_TALLER";
       const res = await fetch("/api/scrapper/add-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

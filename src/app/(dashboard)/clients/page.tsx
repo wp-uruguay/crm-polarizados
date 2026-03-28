@@ -86,13 +86,21 @@ function normalizeWhatsApp(raw: string): string {
 }
 
 const sectorLabel: Record<string, string> = {
-  AUTOMOTRIZ: "Automotriz", ARQUITECTURA: "Arquitectura", SOFTWARE: "Software",
+  AUTO_TALLER: "Auto - Taller",
+  AUTO_CONCESIONARIO: "Auto - Consecionario",
+  AUTO_MAYORISTA: "Auto - Mayorista",
+  ARQUITECTURA_CONSTRUCTORA: "Arquitectura - Constructora",
+  ARQUITECTURA_VIDRIERIA: "Arquitectura - Vidrieria",
+  ARQUITECTURA_MAYORISTA: "Arquitectura - MAyorista",
 };
 
 const sectorColors: Record<string, string> = {
-  AUTOMOTRIZ: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  ARQUITECTURA: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  SOFTWARE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  AUTO_TALLER: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  AUTO_CONCESIONARIO: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
+  AUTO_MAYORISTA: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  ARQUITECTURA_CONSTRUCTORA: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  ARQUITECTURA_VIDRIERIA: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300",
+  ARQUITECTURA_MAYORISTA: "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
 };
 
 
@@ -113,8 +121,8 @@ export default function ClientsPage() {
   const [filterHasAddress, setFilterHasAddress] = useState(false);
   const [filterWithBalance, setFilterWithBalance] = useState(false);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
-  const [filterCity, setFilterCity] = useState<string | null>(null);
   const [filterState, setFilterState] = useState<string | null>(null);
+  const [filterCity, setFilterCity] = useState<string | null>(null);
   const [sortDate, setSortDate] = useState<"asc" | "desc" | null>(null);
   const [myClients, setMyClients] = useState(false);
 
@@ -130,8 +138,13 @@ export default function ClientsPage() {
     filterHasAddress,
     filterWithBalance,
     filterTagId !== null,
+<<<<<<< HEAD
     filterCity !== null,
     filterState !== null,
+=======
+    filterState !== null,
+    filterCity !== null,
+>>>>>>> actualizacion-rubros
     sortDate !== null,
     myClients,
   ].filter(Boolean).length;
@@ -188,14 +201,32 @@ export default function ClientsPage() {
   useEffect(() => { fetchTags(); }, []);
 
   // ── Client-side filter + sort ──────────────────────────────────────────────
+  const allStates = useMemo(() => {
+    const states = [...new Set(clients.map((c) => c.state).filter(Boolean) as string[])];
+    return states.sort();
+  }, [clients]);
+
+  const allCities = useMemo(() => {
+    let cities = clients.map((c) => c.city).filter(Boolean) as string[];
+    if (filterState) {
+      cities = clients.filter((c) => c.state?.toLowerCase() === filterState.toLowerCase()).map((c) => c.city).filter(Boolean) as string[];
+    }
+    return [...new Set(cities)].sort();
+  }, [clients, filterState]);
+
   const visibleClients = useMemo(() => {
     let result = [...clients];
     if (filterSector) result = result.filter((c) => c.sector === filterSector);
     if (filterHasAddress) result = result.filter((c) => !!c.address);
     if (filterWithBalance) result = result.filter((c) => (c.balance ?? 0) > 0);
     if (filterTagId) result = result.filter((c) => c.tags?.some((t) => t.tag.id === filterTagId));
+<<<<<<< HEAD
     if (filterCity) result = result.filter((c) => c.city?.toLowerCase().includes(filterCity.toLowerCase()));
     if (filterState) result = result.filter((c) => c.state === filterState);
+=======
+    if (filterState) result = result.filter((c) => c.state?.toLowerCase() === filterState.toLowerCase());
+    if (filterCity) result = result.filter((c) => c.city?.toLowerCase() === filterCity.toLowerCase());
+>>>>>>> actualizacion-rubros
     if (myClients && session?.user?.id)
       result = result.filter((c) => c.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -203,7 +234,11 @@ export default function ClientsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
+<<<<<<< HEAD
   }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterCity, filterState, myClients, sortDate, session]);
+=======
+  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterState, filterCity, myClients, sortDate, session]);
+>>>>>>> actualizacion-rubros
 
   const clientsWithEmail = visibleClients.filter((c) => !!c.email);
 
@@ -212,8 +247,13 @@ export default function ClientsPage() {
     setFilterHasAddress(false);
     setFilterWithBalance(false);
     setFilterTagId(null);
+<<<<<<< HEAD
     setFilterCity(null);
     setFilterState(null);
+=======
+    setFilterState(null);
+    setFilterCity(null);
+>>>>>>> actualizacion-rubros
     setSortDate(null);
     setMyClients(false);
   }
@@ -529,20 +569,28 @@ export default function ClientsPage() {
                 <Select value={form.sector || undefined} onValueChange={(v) => setForm({ ...form, sector: v })}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="AUTOMOTRIZ">Automotriz</SelectItem>
-                    <SelectItem value="ARQUITECTURA">Arquitectura</SelectItem>
-                    <SelectItem value="SOFTWARE">Software</SelectItem>
+                    <SelectItem value="AUTO_TALLER">Auto - Taller</SelectItem>
+                    <SelectItem value="AUTO_CONCESIONARIO">Auto - Consecionario</SelectItem>
+                    <SelectItem value="AUTO_MAYORISTA">Auto - Mayorista</SelectItem>
+                    <SelectItem value="ARQUITECTURA_CONSTRUCTORA">Arquitectura - Constructora</SelectItem>
+                    <SelectItem value="ARQUITECTURA_VIDRIERIA">Arquitectura - Vidrieria</SelectItem>
+                    <SelectItem value="ARQUITECTURA_MAYORISTA">Arquitectura - MAyorista</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1">
+<<<<<<< HEAD
               <Label>Dirección</Label>
+=======
+              <Label>Calle y número</Label>
+>>>>>>> actualizacion-rubros
               <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ciudad</Label>
+<<<<<<< HEAD
                 <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
               </div>
               <div className="space-y-1">
@@ -555,6 +603,13 @@ export default function ClientsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+=======
+                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Provincia</Label>
+                <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+>>>>>>> actualizacion-rubros
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -607,10 +662,114 @@ export default function ClientsPage() {
               </button>
             </div>
 
-            {/* Acciones dropdown */}
+            {/* ── Desktop: Inline buttons ── */}
+            <div className="hidden md:flex items-center gap-2">
+              {/* Filtrar button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-9">
+                    <Filter size={14} />
+                    Filtrar
+                    {activeFilterCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><ArrowUpDown size={13} />Por fecha</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => setSortDate("desc")} className="gap-2">
+                        <ArrowDown size={13} /> Más recientes {sortDate === "desc" && "✓"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortDate("asc")} className="gap-2">
+                        <ArrowUp size={13} /> Más antiguos {sortDate === "asc" && "✓"}
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem onClick={() => setFilterHasAddress(!filterHasAddress)} className="gap-2">
+                    <MapPin size={13} /> Con dirección {filterHasAddress && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterWithBalance(!filterWithBalance)} className="gap-2">
+                    <DollarSign size={13} /> Con saldo pendiente {filterWithBalance && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><Filter size={13} />Por rubro</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {Object.entries(sectorLabel).map(([val, label]) => (
+                        <DropdownMenuItem key={val} onClick={() => setFilterSector(filterSector === val ? null : val)} className="gap-2">
+                          {label} {filterSector === val && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><Tag size={13} />Por etiqueta</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {allTags.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin etiquetas</DropdownMenuItem>}
+                      {allTags.map((tag) => (
+                        <DropdownMenuItem key={tag.id} onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)} className="gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                          {tag.name} {filterTagId === tag.id && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setTagManagerOpen(true)} className="gap-2 text-xs">
+                        <Plus size={12} /> Gestionar etiquetas
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {allStates.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin provincias registradas</DropdownMenuItem>}
+                      {allStates.map((state) => (
+                        <DropdownMenuItem key={state} onClick={() => { setFilterState(filterState === state ? null : state); setFilterCity(null); }} className="gap-2">
+                          {state} {filterState === state && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!filterState}>
+                      <MapPin size={13} />Por ciudad
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {!filterState && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Selecciona una provincia primero</DropdownMenuItem>}
+                      {filterState && allCities.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin ciudades en esta provincia</DropdownMenuItem>}
+                      {filterState && allCities.map((city) => (
+                        <DropdownMenuItem key={city} onClick={() => setFilterCity(filterCity === city ? null : city)} className="gap-2">
+                          {city} {filterCity === city && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  {activeFilterCount > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={clearFilters} className="text-destructive gap-2">Limpiar filtros</DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button variant="outline" className="gap-2 h-9" onClick={() => setCampaignOpen(true)}>
+                <Send size={14} /> Campaña
+              </Button>
+              <Button variant="outline" className="gap-2 h-9" onClick={() => setMyClients(!myClients)}>
+                <User size={14} /> {myClients ? "Todos" : "Mis clientes"}
+              </Button>
+              <Button className="gap-2 h-9" onClick={() => setDialogOpen(true)}>
+                <Plus size={14} /> Nuevo Cliente
+              </Button>
+            </div>
+
+            {/* ── Mobile: Dropdown menu ── */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 h-9">
+                <Button variant="outline" className="gap-2 h-9 md:hidden">
                   <Settings2 size={14} />
                   Acciones
                   {activeFilterCount > 0 && (
@@ -683,6 +842,31 @@ export default function ClientsPage() {
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {allStates.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin provincias registradas</DropdownMenuItem>}
+                        {allStates.map((state) => (
+                          <DropdownMenuItem key={state} onClick={() => { setFilterState(filterState === state ? null : state); setFilterCity(null); }} className="gap-2">
+                            {state} {filterState === state && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!filterState}>
+                        <MapPin size={13} />Por ciudad
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {!filterState && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Selecciona una provincia primero</DropdownMenuItem>}
+                        {filterState && allCities.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin ciudades en esta provincia</DropdownMenuItem>}
+                        {filterState && allCities.map((city) => (
+                          <DropdownMenuItem key={city} onClick={() => setFilterCity(filterCity === city ? null : city)} className="gap-2">
+                            {city} {filterCity === city && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     {activeFilterCount > 0 && (
                       <>
                         <DropdownMenuSeparator />
@@ -728,11 +912,11 @@ export default function ClientsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-9 p-1"></TableHead>
-                    <TableHead>Nombre</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Rubro</TableHead>
                     <TableHead>Etiquetas</TableHead>
-                    <TableHead>Dirección</TableHead>
+                    <TableHead>Ciudad</TableHead>
+                    <TableHead>Provincia</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Teléfono</TableHead>
                     <TableHead>WhatsApp</TableHead>
@@ -752,9 +936,6 @@ export default function ClientsPage() {
                               <ChevronRight className="h-4 w-4" />
                             </Button>
                           </Link>
-                        </TableCell>
-                        <TableCell className="font-medium whitespace-nowrap">
-                          {client.firstName} {client.lastName}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
                         <TableCell>
@@ -811,6 +992,7 @@ export default function ClientsPage() {
                             </div>
                           </div>
                         </TableCell>
+<<<<<<< HEAD
                         <TableCell>
                           {(client.address || client.city || client.state) ? (
                             <button
@@ -822,6 +1004,13 @@ export default function ClientsPage() {
                               <span className="truncate">{[client.address, client.city, client.state].filter(Boolean).join(", ")}</span>
                             </button>
                           ) : <span className="text-xs">-</span>}
+=======
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {client.city || <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {client.state || <span className="text-muted-foreground">-</span>}
+>>>>>>> actualizacion-rubros
                         </TableCell>
                         <TableCell>
                           {client.email ? (
@@ -874,7 +1063,7 @@ export default function ClientsPage() {
                   })}
                   {visibleClients.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                         No se encontraron clientes
                       </TableCell>
                     </TableRow>
