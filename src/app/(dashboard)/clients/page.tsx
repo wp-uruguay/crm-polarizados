@@ -224,7 +224,7 @@ export default function ClientsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterState, filterCity, myClients, sortDate, session];
+  }, [clients, filterSector, filterHasAddress, filterWithBalance, filterTagId, filterState, filterCity, myClients, sortDate, session]);
 
   const clientsWithEmail = visibleClients.filter((c) => !!c.email);
 
