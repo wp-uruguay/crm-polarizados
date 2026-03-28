@@ -90,11 +90,16 @@ const contactMethodLabel: Record<string, string> = {
 };
 
 const sectorLabel: Record<string, string> = {
-  AUTOMOTRIZ: "Automotriz", ARQUITECTURA: "Arquitectura", SOFTWARE: "Software",
+  AUTO_TALLER: "Auto - Taller",
+  AUTO_CONCESIONARIO: "Auto - Consecionario",
+  AUTO_MAYORISTA: "Auto - Mayorista",
+  ARQUITECTURA_CONSTRUCTORA: "Arquitectura - Constructora",
+  ARQUITECTURA_VIDRIERIA: "Arquitectura - Vidrieria",
+  ARQUITECTURA_MAYORISTA: "Arquitectura - MAyorista",
 };
 
-const CSV_COLUMNS = ["firstName", "lastName", "company", "sector", "email", "phone", "whatsapp", "address", "city", "state", "notes"];
-const CSV_TEMPLATE = CSV_COLUMNS.join(",") + "\nJuan,Pérez,Empresa SA,AUTOMOTRIZ,juan@empresa.com,5512345678,5512345678,Av. Siempre Viva 123,Rosario,Santa Fe,Interesado en láminas\n";
+const CSV_COLUMNS = ["firstName", "lastName", "company", "sector", "email", "phone", "whatsapp", "address", "notes"];
+const CSV_TEMPLATE = CSV_COLUMNS.join(",") + "\nJuan,Pérez,Empresa SA,AUTO_TALLER,juan@empresa.com,5512345678,5512345678,Av. Siempre Viva 123,Interesado en láminas\n";
 
 function parseCSV(text: string): Record<string, string>[] {
   // Strip BOM (added by Excel on Windows)
@@ -137,8 +142,8 @@ export default function LeadsPage() {
   const [filterSector, setFilterSector] = useState<string | null>(null);
   const [filterHasAddress, setFilterHasAddress] = useState(false);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
-  const [filterCity, setFilterCity] = useState<string | null>(null);
   const [filterState, setFilterState] = useState<string | null>(null);
+  const [filterCity, setFilterCity] = useState<string | null>(null);
   const [sortDate, setSortDate] = useState<"asc" | "desc" | null>(null);
   const [myLeads, setMyLeads] = useState(false);
 
@@ -154,8 +159,8 @@ export default function LeadsPage() {
     filterSector !== null,
     filterHasAddress,
     filterTagId !== null,
-    filterCity !== null,
     filterState !== null,
+    filterCity !== null,
     sortDate !== null,
     myLeads,
   ].filter(Boolean).length;
@@ -228,14 +233,27 @@ export default function LeadsPage() {
   useEffect(() => { fetchTags(); }, []);
 
   // ── Client-side filter + sort ─────────────────────────────────────────────
+  const allStates = useMemo(() => {
+    const states = [...new Set(leads.map((l) => l.state).filter(Boolean) as string[])];
+    return states.sort();
+  }, [leads]);
+
+  const allCities = useMemo(() => {
+    let cities = leads.map((l) => l.city).filter(Boolean) as string[];
+    if (filterState) {
+      cities = leads.filter((l) => l.state?.toLowerCase() === filterState.toLowerCase()).map((l) => l.city).filter(Boolean) as string[];
+    }
+    return [...new Set(cities)].sort();
+  }, [leads, filterState]);
+
   const visibleLeads = useMemo(() => {
     let result = [...leads];
     if (filterContacted !== null) result = result.filter((l) => l.contacted === filterContacted);
     if (filterSector) result = result.filter((l) => l.sector === filterSector);
     if (filterHasAddress) result = result.filter((l) => !!l.address);
     if (filterTagId) result = result.filter((l) => l.tags?.some((t) => t.tag.id === filterTagId));
-    if (filterCity) result = result.filter((l) => l.city?.toLowerCase().includes(filterCity.toLowerCase()));
-    if (filterState) result = result.filter((l) => l.state === filterState);
+    if (filterState) result = result.filter((l) => l.state?.toLowerCase() === filterState.toLowerCase());
+    if (filterCity) result = result.filter((l) => l.city?.toLowerCase() === filterCity.toLowerCase());
     if (myLeads && session?.user?.id)
       result = result.filter((l) => l.assignedTo?.id === session.user.id);
     if (sortDate === "asc")
@@ -243,7 +261,7 @@ export default function LeadsPage() {
     if (sortDate === "desc")
       result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return result;
-  }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, filterCity, filterState, myLeads, sortDate, session]);
+  }, [leads, filterContacted, filterSector, filterHasAddress, filterTagId, filterState, filterCity, myLeads, sortDate, session]);
 
   const leadsWithEmail = visibleLeads.filter((l) => !!l.email);
 
@@ -252,8 +270,8 @@ export default function LeadsPage() {
     setFilterSector(null);
     setFilterHasAddress(false);
     setFilterTagId(null);
-    setFilterCity(null);
     setFilterState(null);
+    setFilterCity(null);
     setSortDate(null);
     setMyLeads(false);
   }
@@ -655,32 +673,28 @@ export default function LeadsPage() {
                 <Select value={form.sector || undefined} onValueChange={(v) => setForm({ ...form, sector: v })}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="AUTOMOTRIZ">Automotriz</SelectItem>
-                    <SelectItem value="ARQUITECTURA">Arquitectura</SelectItem>
-                    <SelectItem value="SOFTWARE">Software</SelectItem>
+                    <SelectItem value="AUTO_TALLER">Auto - Taller</SelectItem>
+                    <SelectItem value="AUTO_CONCESIONARIO">Auto - Consecionario</SelectItem>
+                    <SelectItem value="AUTO_MAYORISTA">Auto - Mayorista</SelectItem>
+                    <SelectItem value="ARQUITECTURA_CONSTRUCTORA">Arquitectura - Constructora</SelectItem>
+                    <SelectItem value="ARQUITECTURA_VIDRIERIA">Arquitectura - Vidrieria</SelectItem>
+                    <SelectItem value="ARQUITECTURA_MAYORISTA">Arquitectura - MAyorista</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Dirección</Label>
+              <Label>Calle y número</Label>
               <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Ejemplo 1234" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ciudad</Label>
-                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Rosario" />
+                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
               </div>
               <div className="space-y-1">
                 <Label>Provincia</Label>
-                <Select value={form.state || undefined} onValueChange={(v) => setForm({ ...form, state: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {AR_PROVINCES.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -733,10 +747,121 @@ export default function LeadsPage() {
               </button>
             </div>
 
-            {/* Acciones dropdown (replaces button group for responsive) */}
+            {/* ── Desktop: Inline buttons ── */}
+            <div className="hidden md:flex items-center gap-2">
+              {/* Filtrar button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-9">
+                    <Filter size={14} />
+                    Filtrar
+                    {activeFilterCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><ArrowUpDown size={13} />Por fecha</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => setSortDate("desc")} className="gap-2">
+                        <ArrowDown size={13} /> Más recientes {sortDate === "desc" && "✓"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortDate("asc")} className="gap-2">
+                        <ArrowUp size={13} /> Más antiguos {sortDate === "asc" && "✓"}
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem onClick={() => setFilterHasAddress(!filterHasAddress)} className="gap-2">
+                    <MapPin size={13} /> Con dirección {filterHasAddress && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><Filter size={13} />Por rubro</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {Object.entries(sectorLabel).map(([val, label]) => (
+                        <DropdownMenuItem key={val} onClick={() => setFilterSector(filterSector === val ? null : val)} className="gap-2">
+                          {label} {filterSector === val && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><Tag size={13} />Por etiqueta</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {allTags.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin etiquetas</DropdownMenuItem>}
+                      {allTags.map((tag) => (
+                        <DropdownMenuItem key={tag.id} onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)} className="gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                          {tag.name} {filterTagId === tag.id && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setTagManagerOpen(true)} className="gap-2 text-xs">
+                        <Plus size={12} /> Gestionar etiquetas
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {allStates.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin provincias registradas</DropdownMenuItem>}
+                      {allStates.map((state) => (
+                        <DropdownMenuItem key={state} onClick={() => { setFilterState(filterState === state ? null : state); setFilterCity(null); }} className="gap-2">
+                          {state} {filterState === state && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!filterState}>
+                      <MapPin size={13} />Por ciudad
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {!filterState && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Selecciona una provincia primero</DropdownMenuItem>}
+                      {filterState && allCities.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin ciudades en esta provincia</DropdownMenuItem>}
+                      {filterState && allCities.map((city) => (
+                        <DropdownMenuItem key={city} onClick={() => setFilterCity(filterCity === city ? null : city)} className="gap-2">
+                          {city} {filterCity === city && "✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setFilterContacted(filterContacted === true ? null : true)} className="gap-2">
+                    <CheckCircle2 size={13} className="text-green-500" /> Contactados {filterContacted === true && "✓"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterContacted(filterContacted === false ? null : false)} className="gap-2">
+                    <XCircle size={13} className="text-muted-foreground" /> No contactados {filterContacted === false && "✓"}
+                  </DropdownMenuItem>
+                  {activeFilterCount > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={clearFilters} className="text-destructive gap-2">Limpiar filtros</DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button variant="outline" className="gap-2 h-9" onClick={() => setCampaignOpen(true)}>
+                <Send size={14} /> Campaña
+              </Button>
+              <Button variant="outline" className="gap-2 h-9" onClick={() => setMyLeads(!myLeads)}>
+                <User size={14} /> {myLeads ? "Todos" : "Mis leads"}
+              </Button>
+              <Button variant="outline" className="gap-2 h-9" onClick={() => setCsvDialogOpen(true)}>
+                <Upload size={14} /> Importar
+              </Button>
+              <Button className="gap-2 h-9" onClick={() => setDialogOpen(true)}>
+                <Plus size={14} /> Nuevo Lead
+              </Button>
+            </div>
+
+            {/* ── Mobile: Dropdown menu ── */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 h-9">
+                <Button variant="outline" className="gap-2 h-9 md:hidden">
                   <Settings2 size={14} />
                   Acciones
                   {activeFilterCount > 0 && (
@@ -804,6 +929,31 @@ export default function LeadsPage() {
                         <DropdownMenuItem onClick={() => setTagManagerOpen(true)} className="gap-2 text-xs">
                           <Plus size={12} /> Gestionar etiquetas
                         </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2"><MapPin size={13} />Por provincia</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {allStates.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin provincias registradas</DropdownMenuItem>}
+                        {allStates.map((state) => (
+                          <DropdownMenuItem key={state} onClick={() => { setFilterState(filterState === state ? null : state); setFilterCity(null); }} className="gap-2">
+                            {state} {filterState === state && "✓"}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!filterState}>
+                        <MapPin size={13} />Por ciudad
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {!filterState && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Selecciona una provincia primero</DropdownMenuItem>}
+                        {filterState && allCities.length === 0 && <DropdownMenuItem disabled className="text-xs text-muted-foreground">Sin ciudades en esta provincia</DropdownMenuItem>}
+                        {filterState && allCities.map((city) => (
+                          <DropdownMenuItem key={city} onClick={() => setFilterCity(filterCity === city ? null : city)} className="gap-2">
+                            {city} {filterCity === city && "✓"}
+                          </DropdownMenuItem>
+                        ))}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                     <DropdownMenuSeparator />
@@ -899,17 +1049,14 @@ export default function LeadsPage() {
                       <TableRow>
                         <TableHead className="w-9 p-1"></TableHead>
                         <TableHead className="w-9 p-2"></TableHead>
-                        <TableHead>Nombre</TableHead>
                         <TableHead className="max-w-[110px]">Empresa</TableHead>
                         <TableHead>Rubro</TableHead>
                         <TableHead>Etiquetas</TableHead>
-                        <TableHead>Dirección</TableHead>
+                        <TableHead>Ciudad</TableHead>
+                        <TableHead>Provincia</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Teléfono</TableHead>
                         <TableHead>WhatsApp</TableHead>
-                        <TableHead>Contactado</TableHead>
-                        <TableHead>Vía</TableHead>
-                        <TableHead>Asignado a</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -932,10 +1079,7 @@ export default function LeadsPage() {
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="font-medium whitespace-nowrap">
-                              {lead.firstName} {lead.lastName}
-                            </TableCell>
-                            <TableCell className="max-w-[110px]">
+                            <TableCell className="max-w-[200px]">
                               <span className="block truncate text-sm">{lead.company || "-"}</span>
                             </TableCell>
                             <TableCell>
@@ -990,32 +1134,25 @@ export default function LeadsPage() {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell>
-                              {(lead.address || lead.city || lead.state) ? (
-                                <button onClick={() => setMapLead(lead)}
-                                  className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors text-left max-w-[180px]">
-                                  <MapPin size={14} className="shrink-0 text-primary" />
-                                  <span className="truncate">
-                                    {[lead.address, lead.city, lead.state].filter(Boolean).join(", ")}
-                                  </span>
-                                </button>
-                              ) : <span className="text-muted-foreground text-xs">-</span>}
+                            <TableCell className="text-sm max-w-[80px] truncate">
+                              {lead.city || <span className="text-muted-foreground text-xs">-</span>}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-sm max-w-[60px] truncate">
+                              {lead.state || <span className="text-muted-foreground text-xs">-</span>}
+                            </TableCell>
+                            <TableCell className="p-2 w-9">
                               {lead.email ? (
                                 <button onClick={() => { setEmailLead(lead); setEmailResult(null); setEmailForm({ subject: "", body: "" }); }}
-                                  className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors text-left max-w-[160px]">
-                                  <Mail size={14} className="shrink-0 text-primary" />
-                                  <span className="truncate">{lead.email}</span>
+                                  className="flex items-center justify-center h-8 w-8 hover:text-primary transition-colors text-primary" title={lead.email}>
+                                  <Mail size={16} />
                                 </button>
                               ) : <span className="text-muted-foreground text-xs">-</span>}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="p-2 w-9">
                               {lead.phone ? (
                                 <a href={`tel:${lead.phone.replace(/\s/g, "")}`}
-                                  className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors whitespace-nowrap">
-                                  <Phone size={14} className="shrink-0 text-primary" />
-                                  {lead.phone}
+                                  className="flex items-center justify-center h-8 w-8 hover:text-primary transition-colors text-primary" title={lead.phone}>
+                                  <Phone size={16} />
                                 </a>
                               ) : <span className="text-muted-foreground text-xs">-</span>}
                             </TableCell>
@@ -1029,23 +1166,12 @@ export default function LeadsPage() {
                                 </a>
                               ) : <span className="text-muted-foreground text-xs">-</span>}
                             </TableCell>
-                            <TableCell>
-                              <Badge variant={lead.contacted ? "default" : "secondary"}>
-                                {lead.contacted ? "Sí" : "No"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {lead.contactMethod ? (contactMethodLabel[lead.contactMethod] ?? lead.contactMethod) : "-"}
-                            </TableCell>
-                            <TableCell className="text-sm whitespace-nowrap">
-                              {lead.assignedTo?.name || "Sin asignar"}
-                            </TableCell>
                           </TableRow>
                         );
                       })}
                       {visibleLeads.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                             {activeFilterCount > 0 ? "Ningún lead coincide con los filtros activos." : "No se encontraron leads."}
                           </TableCell>
                         </TableRow>

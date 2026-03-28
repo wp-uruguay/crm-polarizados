@@ -1,0 +1,22 @@
+Agenda de llamadas - Franjas horarias
+Agenda de visitas - Franjas horarias
+
+Logica de IVA: REquiere factura = Precio+IVA en presupuesto y remito (21%)
+Si no requiere factura agregar mensaje debajo del presu "Los precios detallados no incluyen IVA"
+
+- Logica de pagos 7 días / 15 dias / 30 días
+
+- (C) Cliente > Venta > Cliente > Boton Remite 
+
+-. Buscador Remnitos
+
+- Lead/Cliente
+
+ [Notas]
+ [ Proveedor Actual (+)] [ Productos/Precio ]
+
+_______________________________________
+
+Correjir link de notificaciones
+
+Usos horarios 

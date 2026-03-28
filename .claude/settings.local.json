@@ -17,7 +17,8 @@
       "Bash(npx prisma:*)",
       "Bash(node -e \":*)",
       "Bash(find \"c:/Users/JMGarrido/Desktop/crm-polarizados/src/app/\\(dashboard\\)\" -type f -name \"*.tsx\")",
-      "Bash(grep -r \"jsPDF\\\\|pdfmake\\\\|puppeteer\\\\|pdf-lib\\\\|html2pdf\" /c/Users/JMGarrido/Desktop/crm-polarizados --include=*.json --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"jsPDF\\\\|pdfmake\\\\|puppeteer\\\\|pdf-lib\\\\|html2pdf\" /c/Users/JMGarrido/Desktop/crm-polarizados --include=*.json --include=*.ts --include=*.tsx)",
+      "Bash(node -e \"const {PrismaClient} = require\\(''@prisma/client''\\); const p = new PrismaClient\\(\\); p.notification.count\\(\\).then\\(n => console.log\\(''notifications table exists, count:'', n\\)\\).catch\\(e => console.log\\(''error:'', e.message\\)\\).finally\\(\\(\\) => p.$disconnect\\(\\)\\)\")"
     ]
   }
 }

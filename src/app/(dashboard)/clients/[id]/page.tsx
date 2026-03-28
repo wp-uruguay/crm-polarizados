@@ -31,6 +31,8 @@ interface ClientDetail {
   email: string | null;
   phone: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
   rut: string | null;
   notes: string;
   suppliers: string[];
@@ -238,8 +240,16 @@ export default function ClientDetailPage() {
               {client.phone || "-"}
             </p>
             <p>
-              <span className="font-medium">Direccion:</span>{" "}
+              <span className="font-medium">Dirección:</span>{" "}
               {client.address || "-"}
+            </p>
+            <p>
+              <span className="font-medium">Ciudad:</span>{" "}
+              {client.city || "-"}
+            </p>
+            <p>
+              <span className="font-medium">Provincia:</span>{" "}
+              {client.state || "-"}
             </p>
             <p>
               <span className="font-medium">RUT:</span> {client.rut || "-"}

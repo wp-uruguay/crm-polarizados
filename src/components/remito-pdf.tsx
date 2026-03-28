@@ -11,10 +11,6 @@ interface RemitoData {
   facturaInfo?: string | null;
   sale: {
     number: number;
-    total: number | string;
-    subtotal: number | string;
-    discount: number | string;
-    tax: number | string;
     requiresFactura?: boolean;
     contact: {
       firstName: string;
@@ -26,16 +22,11 @@ interface RemitoData {
     };
     items: Array<{
       quantity: number;
-      unitPrice: number | string;
-      total: number | string;
       product: { name: string; category?: string };
     }>;
   };
 }
 
-function fmt(n: number | string) {
-  return `$${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
 
 export function downloadRemitoPDF(remito: RemitoData) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -103,40 +94,23 @@ export function downloadRemitoPDF(remito: RemitoData) {
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [["Producto", "Categoría", "Cant.", "P. Unitario", "Total"]],
+    head: [["Producto", "Categoría", "Cant."]],
     body: remito.sale.items.map((item) => [
       item.product.name,
       item.product.category || "",
       item.quantity.toString(),
-      fmt(item.unitPrice),
-      fmt(item.total),
     ]),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [15, 23, 42], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 245, 250] },
   });
 
-  // Totals
-  const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
-  const tX = W - margin - 60;
-  doc.setFontSize(9);
-  if (Number(remito.sale.discount) > 0) {
-    doc.text(`Subtotal:`, tX, finalY); doc.text(fmt(remito.sale.subtotal), W - margin, finalY, { align: "right" });
-    doc.text(`Descuento:`, tX, finalY + 5); doc.text(`-${fmt(remito.sale.discount)}`, W - margin, finalY + 5, { align: "right" });
-  }
-  if (Number(remito.sale.tax) > 0) {
-    doc.text(`IVA:`, tX, finalY + 10); doc.text(fmt(remito.sale.tax), W - margin, finalY + 10, { align: "right" });
-  }
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  const totalY = finalY + (Number(remito.sale.discount) > 0 || Number(remito.sale.tax) > 0 ? 16 : 0);
-  doc.text("TOTAL:", tX, totalY); doc.text(fmt(remito.sale.total), W - margin, totalY, { align: "right" });
-
   // Notes
+  const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   if (remito.notes) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Notas: ${remito.notes}`, margin, totalY + 12);
+    doc.text(`Notas: ${remito.notes}`, margin, finalY);
   }
 
   // Signature section
